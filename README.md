@@ -23,8 +23,9 @@ Or, once available in the community marketplace:
 
 - **`gipity` skill** — Claude automatically reaches for Gipity when you want to deploy/host something or need a backend (database, functions, auth, realtime, AI services) and nothing is set up yet. It detects your setup state, onboards you, and then defers to the platform's live documentation (`gipity skill list`) so guidance never goes stale.
 - **`/gipity:setup` command** — explicit one-shot onboarding: install the CLI, log in (email + 6-digit code), link the current directory to a cloud project.
+- **Use-case skills** (generated) — deep documentation for the things people most often want to build: full-stack web apps (`web-app-basics`), 2D games (`2d-game`), 3D/multiplayer games (`3d-world`), camera + computer-vision apps (`web-vision-mediapipe`), and realtime/presence features (`app-realtime`).
 
-The plugin is intentionally thin: the `gipity` CLI and the platform's live skill catalog are the source of truth, so the plugin doesn't drift as the platform evolves.
+The hand-written parts are intentionally thin, and every use-case skill is generated from the same `platform/docs/skills/*.md` sources that power the Gipity agent, the web docs (docs.gipity.ai), and `gipity skill read` — one source of truth, published to this plugin by `platform/scripts/sync-claude-plugin.ts`. Don't edit files marked GENERATED here; edit the platform doc and re-run the sync.
 
 ## Requirements
 
