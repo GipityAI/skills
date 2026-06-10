@@ -67,7 +67,7 @@ Recognised gestures: `Thumb_Up`, `Thumb_Down`, `Open_Palm`, `Closed_Fist`, `Vict
 
 ## Notes and common mistakes
 
-- **Gesture is the strong task.** Object detection uses EfficientDet-Lite - fast but modest accuracy. Good for a demo; do not promise production-grade detection. If a project needs high-accuracy detection, say so rather than over-selling this kit.
+- **Gesture is the strong task.** Object detection uses EfficientDet-Lite - fast but modest accuracy. Good for a demo; do not promise production-grade detection. If a project needs high-accuracy detection, counting, or custom classes, use the `web-vision-detect` kit (YOLOX) instead.
 - **The canvas must overlay the video** at the same on-screen size. The kit sizes the canvas backing store to the camera frame; CSS `object-fit: cover` on *both* keeps the overlay aligned. A front camera reads naturally with `transform: scaleX(-1)` on both.
 - **Camera needs a user gesture and a secure origin.** Call `mountVision` from a click handler, not on page load, and deploy over HTTPS - `getUserMedia` fails on plain HTTP.
 - **One `detect()` per frame.** Timestamps must strictly increase; `mountVision`/`createLoop` already handle this. Do not call `task.detect()` twice for the same frame.
