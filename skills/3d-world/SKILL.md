@@ -40,6 +40,16 @@ After installing the template, list all files with `file_list` and read them to 
 - `scene.js` - Demo scene setup. Replace with your own world.
 - `core.js` - Engine entry point. Exports all engine modules.
 
+The engine source ships in `src/` too. Every engine file opens with a header comment listing its exports and invariants - when you need a detail this doc doesn't cover, read the source instead of guessing where things live:
+
+- `primitives.js` - Part system + `workspace`. `PART_DEFAULTS` at the top lists every Part property with its exact default.
+- `assets.js` - models, sounds, and `MATERIAL_PRESETS` (per-material friction/elasticity + visual settings).
+- `player.js` - character controller and camera (physics model in its header).
+- `physics.js` - Rapier world, raycasting, triggers.
+- `world.js` - Three.js scene, camera, renderer, lighting.
+- `ui.js` - HUD, loading screen, message overlays.
+- `shapes.js` - voxel shape library. `constraints.js` - joints. `features.js` - feature registry. `network.js` + `packages/realtime/` - multiplayer.
+
 Read the files before making changes - the comments explain what each one does.
 
 ## Engine API
@@ -145,7 +155,7 @@ const redParts = primitives.queryParts({ color: 0xff0000 });
 primitives.removePart(crate);
 ```
 
-**Part properties:** position, rotation (quaternion), size, anchored, canCollide, mass, friction, elasticity, linearDamping, angularDamping, color, material, transparency, shape, castShadow, receiveShadow
+**Part properties:** position, rotation (quaternion), size, anchored, canCollide, massless, mass, friction, elasticity, linearDamping, angularDamping, color, material, transparency, shape, castShadow, receiveShadow. Exact defaults: `PART_DEFAULTS` at the top of `primitives.js`. Setting `material` overrides friction+elasticity from its preset in `assets.js`.
 
 **Materials:** plastic (default), metal, wood, glass, neon, ice, grass, sand - each sets visual + physics defaults
 
@@ -227,6 +237,8 @@ player.cameraControl.setFixedLookAt({x:0, y:0, z:0});
 - `player.setPosition(x, y, z)` - Teleport player
 - `player.inputState` - Current input: {forward, right, jump, action}
 - `player.cameraControl` - Camera mode and settings (see above)
+
+The player is a **dynamic rigid body** (added mass 2): it shoves and knocks over dynamic Parts on contact for free. Its rotation is locked, so it stays upright and never topples.
 
 ### Network (`network`)
 
