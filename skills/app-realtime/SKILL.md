@@ -399,12 +399,13 @@ With those, verification is a single `gipity page test` run - it loads the URL i
 gipity page test ".../app/?test-name=Player&test-action=join" --clients 3 --stagger 8 --wait 10000
 ```
 
-For asymmetric roles (one host, others join) point each client at the right URL with two calls:
+For asymmetric roles (one host, others join), don't run two separate calls — they execute sequentially, so the host client is gone (or its room is stale) by the time the joiners load, and you get a false negative. Co-launch the roles in **one** interactive invocation instead: with `--observe`, `{{label}}` / `{{i}}` substitute into the URL too, and the overlap check confirms the roles actually coexisted:
 
 ```
-gipity page test ".../app/?test-name=Alice&test-action=host" --clients 1 --wait 8000
-gipity page test ".../app/?test-name=Bob&test-action=join"   --clients 2 --stagger 6 --wait 10000
+gipity page test ".../app/?test-name={{label}}&test-action={{label}}" --clients 2 --labels host,join   --observe "document.querySelector('[data-screen]')?.dataset.screen"
 ```
+
+Client 0 loads `?test-action=host` and client 1 `?test-action=join`, genuinely concurrently — no backgrounding + `sleep` dance, no stale lingering room to land in.
 
 No Puppeteer, no Chromium libs, no DOM driving — a passive `page test` (no `--observe`) just loads the URL, so the URL-param test mode is what makes the load alone exercise the join path. (When you'd rather drive the form than add a test mode, the interactive `page test --observe` above does the DOM driving for you.) Implement it once per multiplayer app and every realtime change is a 30-second smoke test from there on. Pair it with the `data-testid` / `data-screen` / `data-ready` conventions from `web-app-basics` for any leftover click-driven tests.
 
