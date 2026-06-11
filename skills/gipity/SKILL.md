@@ -58,7 +58,7 @@ edit files  →  gipity deploy dev  →  gipity page inspect <url>  →  fix err
 
 ## Rules of the road in a Gipity project
 
-- **App code runs on Gipity, not locally.** Don't `npm install`, `npm start`, or run `node`/`python` against the app — there's no local runtime. Use `gipity sandbox run "<code>"` for one-off execution (a container with ffmpeg, ImageMagick, pandas, pandoc, and more pre-installed; no network inside).
+- **App code runs on Gipity, not locally.** Don't `npm install`, `npm start`, or run `node`/`python` against the app — there's no local runtime. Use `gipity sandbox run` for one-off execution (a container with ffmpeg, ImageMagick, pandas, pandoc, and more pre-installed; no network inside). Pin the language — the implicit default is JavaScript: `gipity sandbox run python "<code>"` / `bash "<cmd>"`, or `--language py|bash|js`, or `--file script.py` (inferred from the extension).
 - **Files auto-sync.** Hooks push every write to the cloud and pull remote changes. `gipity sync` recovers if things drift. List local-only material in `.gipityignore`.
 - **Use first-party services before reaching outside.** Auth, geocoding, LLM calls, image/speech generation, transcription, uploads, realtime — all built in, no API keys. Check `gipity skill list` before adding an external API or npm package for one of these.
 - **Database**: `gipity db query "SQL"` from the CLI; inside serverless functions use the function `db` API (see `gipity skill read web-app-basics`). Schema changes go in `migrations/`.
@@ -74,7 +74,8 @@ edit files  →  gipity deploy dev  →  gipity page inspect <url>  →  fix err
 | `gipity page inspect <url>` | Console errors / failed resources on a deployed page |
 | `gipity db query "SQL"` | Query the project database |
 | `gipity fn call <name> [json]` / `gipity logs fn <name>` | Call / debug serverless functions |
-| `gipity sandbox run "<code>"` | Run JS/Python/Bash in a cloud container |
+| `gipity sandbox run <python\|bash\|js> "<code>"` | Run code in a cloud container (default js — pin the language) |
+| `gipity text analyze "<text>"` | Deterministic char/word counts, occurrences, anagrams — local, no LLM |
 | `gipity generate image\|video\|speech\|music "<prompt>" -o <path>` | Generate media into the source tree |
 | `gipity test` | Run the project's test suite |
 | `gipity skill list` / `gipity skill read <name>` | Live platform documentation |
