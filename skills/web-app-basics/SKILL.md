@@ -124,18 +124,23 @@ Bring the JSON-LD `name` (and any social tags) in line with the new title:
 A deployed app should not depend on a third-party CDN being up to perform its core function. The app's own files deploy to the Gipity CDN; a runtime import from `esm.sh`/`unpkg`/`jsdelivr` does not - if that CDN is slow, down, or the user is offline, the import fails and a feature that relies on it silently does nothing.
 
 - **Prefer vendoring small, stable dependencies.** Drop the library file into `src/js/vendor/` and import it locally (e.g. `import QRCode from './vendor/qrcode.js'`). It deploys with the app to the Gipity CDN, so it loads as reliably as the rest of your code - no third-party runtime dependency, no import map pointing at an external host.
+- **To vendor any npm library in one step, fetch the self-contained ESM bundle from `esm.sh` with `?bundle`** - it inlines every transitive dependency into a single file, so there's nothing left to re-fetch or rewrite. E.g. `curl -sSL "https://esm.sh/chart.js@4?bundle" -o src/js/vendor/chart.js`, then `import { Chart } from './vendor/chart.js'`. Don't use the UMD build (a plain `<script>` tag gets dropped by the prod build) or a jsdelivr `/+esm` URL (it leaves transitive deps as dangling external imports you'd have to vendor and rewrite by hand). `esm.sh ... ?bundle` avoids that whole rabbit hole.
 - **If you must import from a runtime CDN**, add a graceful failure path: wrap the dynamic import in `try/catch` and show the user a clear message ("Couldn't load the QR generator - check your connection and retry") instead of leaving the UI doing nothing. A silent failure looks like a broken app.
 
 **If the user asks for a QR code to the app/URL itself** (not an in-app generator) - e.g. "put a QR code on the front desk" - actually produce the image. Generate it in the sandbox with `qrencode` (see the worked example in `sandbox-tools`), save the PNG into `src/images/` so it deploys, optionally embed it on the page, and tell the user the file path. Don't hand back the URL and tell them to make the QR themselves - that leaves the explicit ask unfulfilled.
 
 ## Browser Debugging
 
-Two separate browser capabilities - pick the right one:
+Pick the right one - inspect for health, test for behavior, the agent tool for deep digs:
 
 **`gipity page inspect <url>`** (CLI) - one-shot inspection. Returns console errors, failed resources, timing, oversized images. No actions, no screenshots. Use this first after every deploy.
 Options: `--wait <ms>` (default 500), `--json`. If unsure: `gipity page inspect --help`.
 
-**`browser` agent tool** - interactive debugging with actions. Use when the CLI inspection surfaces something you need to dig into:
+**`gipity page screenshot <url>`** (CLI) - capture what the page actually renders. Viewport by default; add `--full` for the entire scrollable page (no need to scroll the page yourself). Use this for the CLI screenshot path - don't reach for a `browser`/scroll tool, the CLI covers it.
+
+**`gipity page test <url> --action <js> --observe <js>`** (CLI) - drive an interactive feature and assert it actually works, not just that the page loaded. Each client runs `--action` once (click, type, submit), then samples `--observe` across a hold window and reports the values back. This is the supported way to confirm the headline behavior - e.g. "type a message → get an AI reply" - after a deploy; don't hand-roll a `gipity page eval` script that pokes the DOM and polls yourself. One client is fine (`--clients 1`); use 2+ to verify multi-client/realtime state. `gipity page test --help` for worked examples.
+
+**`browser` agent tool** (Gip only) - interactive debugging with actions, when running inside Gip. Use when the CLI inspection surfaces something you need to dig into:
 - `open` → `snapshot` - read DOM/accessibility tree
 - `console` - captured `console.error`/`console.warn`
 - `eval` - run JS expressions (check variables, DOM state)
