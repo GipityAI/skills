@@ -55,7 +55,7 @@ Worked references ship inside the kit: `examples/` has one file per shape (chat,
 
 ### Presence done well
 
-A who's-here / presence list has three quality gaps that are easy to miss while building and obvious the moment someone uses it. Make these the default for any presence app:
+A who's-here / presence list has three quality gaps that are easy to miss while building and obvious in use. Make these the default for any presence app:
 
 1. **Persist identity across reloads.** Generate a stable peer id once and store it (plus the chosen name) in `localStorage`; pre-fill the name input on load so a returning teammate isn't re-prompted on every refresh.
 2. **Scope the room from the URL.** Read the room name from a path segment or `?room=` query param with a sensible default, so two different teams sharing the same app link land in separate presence lists instead of one global room.

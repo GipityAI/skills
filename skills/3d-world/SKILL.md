@@ -40,7 +40,7 @@ After installing the template, list all files with `file_list` and read them to 
 - `scene.js` - Demo scene setup. Replace with your own world.
 - `core.js` - Engine entry point. Exports all engine modules.
 
-The engine source ships in `src/` too. Every engine file opens with a header comment listing its exports and invariants - when you need a detail this doc doesn't cover, read the source instead of guessing where things live:
+The engine source ships in `src/` too. Every engine file opens with a header comment listing its exports and invariants - read the source when you need a detail this doc doesn't cover:
 
 - `primitives.js` - Part system + `workspace`. `PART_DEFAULTS` at the top lists every Part property with its exact default.
 - `assets.js` - models, sounds, and `MATERIAL_PRESETS` (per-material friction/elasticity + visual settings).

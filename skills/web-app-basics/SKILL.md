@@ -101,7 +101,7 @@ When building apps or websites, follow these practices for professional-quality 
 
 ## Keep page metadata consistent
 
-The template ships a baseline social/SEO block in `<head>`: the `<title>`, an `og:title` (often `og:description`/`twitter:*` too), and an `application/ld+json` structured-data object whose `name` is set once at install. These three are *one unit*. When you change the page's visible title or H1 from the install default, update all of them together - the `<title>`, `og:title` (and `og:description`/`twitter:*` if present), and the JSON-LD `name` - so link previews and search results match what the page actually shows. Updating only the `<title>` leaves a stale structured-data/social name behind.
+The template ships a baseline social/SEO block in `<head>`: the `<title>`, an `og:title` (often `og:description`/`twitter:*` too), and an `application/ld+json` structured-data object whose `name` is set once at install. These three are *one unit*. When you change the page's visible title or H1 from the install default, update all three together so link previews and search results match what the page actually shows. Updating only the `<title>` leaves a stale structured-data/social name behind.
 
 For example, if you retitle a page to a short label but leave the JSON-LD untouched:
 
@@ -152,7 +152,7 @@ For non-trivial apps, don't write the whole thing in one pass. Work in small ver
 2. Add ONE feature or screen, deploy, verify.
 3. Repeat.
 
-A 300+ line single-file rewrite is hard to debug when something breaks - a single bad API call or typo can break everything silently. Small increments keep the failure surface tiny and let you bisect by diff.
+A 300+ line single-file rewrite is hard to debug - a single bad API call or typo can break everything silently. Small increments keep the failure surface tiny and let you bisect by diff.
 
 ## Personal data defaults to per-user scoping
 
@@ -160,7 +160,7 @@ When the request implies user-private data — "my receipts", a personal vault, 
 
 ## Go One Step Past the Literal Request
 
-For a single-purpose utility (a QR generator, a color picker, a unit converter), doing only the bare ask ships something that *works* but feels unfinished. These tools have obvious adjacent affordances that are cheap to add and clearly raise quality - add a small number by default rather than the minimum path. Keep it scoped: pick a couple of the cheap-polish moves below, not a feature dump.
+For a single-purpose utility (a QR generator, a color picker, a unit converter), doing only the bare ask ships something that *works* but feels unfinished. These tools have obvious adjacent affordances that are cheap to add and clearly raise quality. Keep it scoped: pick a couple of the cheap-polish moves below, not a feature dump.
 
 - **Multiple output/download formats**: if you export one format, offer the obvious sibling too (e.g. for a generator: an SVG/vector download alongside PNG).
 - **Copy to clipboard**: a one-click copy action for the primary result (image, text, URL, code).

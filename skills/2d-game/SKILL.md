@@ -17,7 +17,7 @@ description: "Use when the user wants to build a 2D browser game - platformer, s
 
 ## Quick Start - Start Here
 
-**STRONGLY RECOMMENDED:** Begin every 2D game by adding the `2d-game` template with `add`. It sets up Phaser 3, boot/game scenes, config, settings, and favicons for you. Only hand-roll files if the user explicitly tells you to skip the template.
+**STRONGLY RECOMMENDED:** Begin every 2D game by adding the `2d-game` template with `add`. It sets up Phaser 3, boot/game scenes, config, settings, and favicons. Only hand-roll files if the user explicitly tells you to skip the template.
 
 ```
 add name=2d-game title="<Game Name>"
@@ -47,8 +47,6 @@ src/
     favicon-192.png
     favicon.ico
 ```
-
-All files are editable. No read-only engine layer.
 
 ## Phaser Essentials
 
@@ -132,7 +130,7 @@ These are the failure modes that most often turn the whole screen black. Read be
 
 ## Build Incrementally
 
-For anything non-trivial, resist the urge to write the whole game in one `Write` call. Work in small, verified steps:
+For anything non-trivial, don't write the whole game in one `Write` call. Work in small, verified steps:
 
 1. Add the template (`gipity add 2d-game`) and deploy - confirm the starter game renders.
 2. Customize ONE element (e.g. replace the player rectangle with your sprite). Deploy, screenshot, confirm it renders.

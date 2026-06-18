@@ -15,11 +15,11 @@ description: "Use when the user wants real-time object detection in a web app - 
 
 On-device: no server, no upload, the camera stream never leaves the device. Inference runs on **WebGPU** where the browser has it, with automatic **WASM (SIMD)** fallback. **Web only** - it needs `getUserMedia` (for camera use), WASM, and a canvas, so it runs only on HTTPS or `localhost`.
 
-This kit is the high-accuracy sibling of `web-vision-mediapipe`: use that one for gesture and pose; use this one when detection is the product - counting, labeling, inventory, custom classes.
+This kit is the high-accuracy sibling of `web-vision-mediapipe`: use that one for gesture and pose, this one when detection is the product - counting, labeling, inventory, custom classes.
 
 ## Two ways in
 
-**Start a fresh detection app** - add the `object-spotter` starter. It is a fullscreen camera app that boxes, labels, and counts objects live, detects picked photos, and switches between three speed/accuracy presets, with the kit pre-installed:
+**Start a fresh detection app** - add the `object-spotter` starter, a fullscreen camera app with the kit pre-installed that boxes, labels, and counts objects live, detects picked photos, and switches between three speed/accuracy presets:
 
 ```
 add name=object-spotter title="..."
@@ -66,7 +66,7 @@ For a custom loop, compose the low-level exports instead: `createDetector`, `sta
 | `tiny` | 20 MB | 32.8 | Noticeably better accuracy, still fast |
 | `s` | 36 MB | 40.5 | Accuracy is the point; fine on WebGPU |
 
-Presets are official YOLOX exports hosted on the Gipity CDN, fetched on first use and browser-cached. **Custom models:** pass `model: { url, format, inputSize, labels }` - `format: 'yolox'` for YOLOX exports, `format: 'yolo'` for Ultralytics YOLOv8/v11 `model.export(format='onnx')`. This is the deploy path for "I trained a detector on Roboflow/Ultralytics, now I want it in an app".
+Presets are official YOLOX exports hosted on the Gipity CDN, fetched on first use and browser-cached. **Custom models:** pass `model: { url, format, inputSize, labels }` - `format: 'yolox'` for YOLOX exports, `format: 'yolo'` for Ultralytics YOLOv8/v11 `model.export(format='onnx')`. This is the deploy path for "I trained a detector on Roboflow/Ultralytics and want it in an app".
 
 ## Notes and common mistakes
 

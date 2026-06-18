@@ -92,7 +92,7 @@ export default {
 
 ## Scope guardrails - keep the bot on-topic
 
-The single most common ask for a helper bot is "if someone asks it something off-topic, it should politely decline." That's exactly what `scope` is for. Declare what's in and out of bounds, and - this is the part that makes it work - give a `refusalExamples` pair showing how to decline *in character*:
+The most common ask for a helper bot is "if someone asks something off-topic, it should politely decline." That's what `scope` is for. Declare what's in and out of bounds, and - the part that makes it work - give a `refusalExamples` pair showing how to decline *in character*:
 
 ```js
 scope: {
@@ -108,7 +108,7 @@ scope: {
 }
 ```
 
-The kit compiles `scope` into structured system-prompt instructions, with the refusal example teaching the model to stay in character while declining. It works well with capable models. (A stricter pre-classification step is on the roadmap.)
+The kit compiles `scope` into structured system-prompt instructions, with the refusal example teaching the model to stay in character while declining. Works well with capable models. (A stricter pre-classification step is on the roadmap.)
 
 ## Knowledge - 20k token budget
 
