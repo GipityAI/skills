@@ -1,6 +1,6 @@
 {
   "name": "gipity",
-  "description": "Gipity cloud for Claude Code — hosting, Postgres databases, serverless functions, auth, file storage, realtime, and AI services (image, speech, LLM), all driven by the gipity CLI. Build, deploy, and verify live apps without leaving your session.",
+  "description": "Gipity cloud for Claude Code - hosting, Postgres databases, serverless functions, auth, file storage, realtime, and AI services (image, speech, LLM), all driven by the gipity CLI. Build, deploy, and verify live apps without leaving your session.",
   "version": "0.4.0",
   "author": {
     "name": "Gipity",
@@ -8,7 +8,7 @@
     "url": "https://gipity.ai"
   },
   "homepage": "https://gipity.ai",
-  "repository": "https://github.com/GipityAI/claude-plugin",
+  "repository": "https://github.com/GipityAI/skills",
   "license": "MIT",
   "keywords": [
     "deploy",

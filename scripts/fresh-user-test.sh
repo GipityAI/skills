@@ -8,7 +8,7 @@
 #
 # This repo is mounted read-only at /gipity-plugin so the marketplace add
 # works even while the GitHub repo is private. Once the repo is public, test
-# the real path instead: /plugin marketplace add GipityAI/claude-plugin
+# the real path instead: /plugin marketplace add GipityAI/skills
 #
 # Claude auth inside the container: either log in interactively when claude
 # starts, or run `claude setup-token` on the host first and

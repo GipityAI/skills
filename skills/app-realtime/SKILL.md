@@ -373,8 +373,8 @@ room.onLeave((code) => {
 
 Presence and shared state only mean anything when two clients are **live at the same time**. Two important traps:
 
-- `gipity page test` *without* `--observe` does passive page loads only — it never submits a name, clicks, or reads shared state, so it can't tell you whether clients see each other.
-- Two separate `gipity page eval` calls run **sequentially** — each finishes before the next starts, so the clients never coexist and each sees only itself. That looks identical to a broken presence kit, but it's a false negative from the harness, not a bug in your app. Don't go debugging the transport over it.
+- `gipity page test` *without* `--observe` does passive page loads only - it never submits a name, clicks, or reads shared state, so it can't tell you whether clients see each other.
+- Two separate `gipity page eval` calls run **sequentially** - each finishes before the next starts, so the clients never coexist and each sees only itself. That looks identical to a broken presence kit, but it's a false negative from the harness, not a bug in your app. Don't go debugging the transport over it.
 
 The fix for both is the interactive mode of `page test`, which spins up N **genuinely concurrent** clients, drives an action in each, samples the shared state over a window, and then **verifies the clients actually overlapped in time** (refusing to call a non-overlapping run a pass):
 
@@ -399,15 +399,15 @@ With those, verification is a single `gipity page test` run - it loads the URL i
 gipity page test ".../app/?test-name=Player&test-action=join" --clients 3 --stagger 8 --wait 10000
 ```
 
-For asymmetric roles (one host, others join), don't run two separate calls — they execute sequentially, so the host client is gone (or its room is stale) by the time the joiners load, and you get a false negative. Co-launch the roles in **one** interactive invocation instead: with `--observe`, `{{label}}` / `{{i}}` substitute into the URL too, and the overlap check confirms the roles actually coexisted:
+For asymmetric roles (one host, others join), don't run two separate calls - they execute sequentially, so the host client is gone (or its room is stale) by the time the joiners load, and you get a false negative. Co-launch the roles in **one** interactive invocation instead: with `--observe`, `{{label}}` / `{{i}}` substitute into the URL too, and the overlap check confirms the roles actually coexisted:
 
 ```
 gipity page test ".../app/?test-name={{label}}&test-action={{label}}" --clients 2 --labels host,join   --observe "document.querySelector('[data-screen]')?.dataset.screen"
 ```
 
-Client 0 loads `?test-action=host` and client 1 `?test-action=join`, genuinely concurrently — no backgrounding + `sleep` dance, no stale lingering room to land in.
+Client 0 loads `?test-action=host` and client 1 `?test-action=join`, genuinely concurrently - no backgrounding + `sleep` dance, no stale lingering room to land in.
 
-No Puppeteer, no Chromium libs, no DOM driving — a passive `page test` (no `--observe`) just loads the URL, so the URL-param test mode is what makes the load alone exercise the join path. (When you'd rather drive the form than add a test mode, the interactive `page test --observe` above does the DOM driving for you.) Implement it once per multiplayer app and every realtime change is a 30-second smoke test from there on. Pair it with the `data-testid` / `data-screen` / `data-ready` conventions from `web-app-basics` for any leftover click-driven tests.
+No Puppeteer, no Chromium libs, no DOM driving - a passive `page test` (no `--observe`) just loads the URL, so the URL-param test mode is what makes the load alone exercise the join path. (When you'd rather drive the form than add a test mode, the interactive `page test --observe` above does the DOM driving for you.) Implement it once per multiplayer app and every realtime change is a 30-second smoke test from there on. Pair it with the `data-testid` / `data-screen` / `data-ready` conventions from `web-app-basics` for any leftover click-driven tests.
 
 ## Tips
 - The `@gipity/realtime` kit (`gipity add realtime`) covers lobby + match rooms, a `store` channel for whole-object state, presence, host election, and automatic reconnection - prefer it over hand-rolling any of the above
