@@ -126,7 +126,7 @@ These are the failure modes that most often turn the whole screen black. Read be
 - **Set world bounds for scrolling worlds.** The default physics world is the canvas size. For a side-scroller or large map, call `this.physics.world.setBounds(0, 0, worldWidth, height)` in `create()` - otherwise platforms and objects beyond the canvas get ignored by physics.
 - **Use object hashes, not sparse arrays, for spatial maps.** `this.segments = {}` with string/number keys works; `this.segments = []` with large indices becomes sparse and breaks `Object.keys`/`values` enumeration in subtle ways.
 - **Don't double-create physics bodies.** Either call `this.physics.add.existing(obj)` OR add `obj` to a `staticGroup` with `group.add(obj)` - not both. Double-creation silently misplaces the body relative to the visual.
-- **Always verify renders, not just console.** A missing API or a bad draw can throw once during init and leave a black canvas with nothing further to report. After deploying, capture a screenshot using the `browser` agent tool's `screenshot` action - don't trust "clean console" as proof.
+- **Always verify renders, not just console.** A missing API or a bad draw can throw once during init and leave a black canvas with nothing further to report. After deploying, capture a screenshot and look at it - `gipity page screenshot <url>` from the CLI, or the `browser` agent tool's `screenshot` action in chat - don't trust "clean console" as proof. If gameplay only starts after a "play" click, drive it in the same shot so you capture the game and not the menu: `gipity page screenshot <url> --action "document.getElementById('play').click()"` (use your start button's selector).
 
 ## Build Incrementally
 
@@ -143,7 +143,7 @@ A 500-line rewrite of `scenes/game.js` is very hard to debug when something brea
 
 After every `gipity deploy dev`:
 - Run `gipity page inspect <deploy-url>` to surface console errors.
-- **On the first deploy of a new game**, and any time you've made significant visual changes, also use the `browser` agent tool's `screenshot` action and look at the image. A clean console is NOT sufficient proof for Canvas/WebGL apps - render failures are often silent.
+- **On the first deploy of a new game**, and any time you've made significant visual changes, also capture a screenshot and look at the image - `gipity page screenshot <url>` (CLI) or the `browser` agent tool's `screenshot` action (chat). To capture actual gameplay rather than the title screen, start the game in the same shot: `gipity page screenshot <url> --action "document.getElementById('play').click()"`. A clean console is NOT sufficient proof for Canvas/WebGL apps - render failures are often silent.
 - If you see a black screen with a clean console: assume a sync error fired during Phaser init (most commonly a missing API like `fillEllipse`, or physics attached to a raw Graphics). Re-read the "Common Phaser 3 Pitfalls" section above before rewriting.
 
 ### Animations
