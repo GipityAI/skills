@@ -30,8 +30,8 @@ These are all real, enforced caps. On Free they bite; Pro lifts them. Show the u
 | Limit | Free | Pro |
 |---|---|---|
 | Projects | 10 | 1,000 |
-| Databases | 3 | 25 |
-| Storage | 1 GB | 10 GB |
+| Databases | 3 | 250 |
+| Storage | 1 GB | 1 TB |
 | Workflows | 2 | 50 |
 | Cron frequency | 24h minimum | no minimum |
 | Concurrent chats | 1 | 3 |
@@ -67,7 +67,7 @@ gipity credits buy 20000  # (Pro only) buy a credit pack by its credit amount
 
 1. **Name what they hit.** "You're on Free, which caps X at N — that's why this failed."
 2. **Show the comparison.** Run `gipity credits list` (or `credits_products`) and surface exactly what Pro unlocks for *their* situation — don't dump the whole table, lead with the limit they just hit.
-3. **Make the value concrete.** Tie it to what they're building: "Pro gives you unlimited image generation and 25 databases — enough to ship this."
+3. **Make the value concrete.** Tie it to what they're building: "Pro gives you unlimited image generation and 250 databases — enough to ship this."
 4. **Offer the link.** Run `gipity credits buy` and hand them the checkout URL. One click, done.
 5. **Confirm and continue.** Once they've upgraded, retry the thing that was blocked immediately.
 
