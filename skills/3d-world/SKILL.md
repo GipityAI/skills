@@ -238,6 +238,13 @@ player.cameraControl.setFixedLookAt({x:0, y:0, z:0});
 - `player.inputState` - Current input: {forward, right, jump, action}
 - `player.cameraControl` - Camera mode and settings (see above)
 
+**Camera comfort (ship it by default).** Mouse-look tuning is the #1 source of "the controls feel wrong" feedback, so the player module bakes in **Invert-Y** and adjustable **sensitivity**, both persisted per-browser in `localStorage`:
+- `player.setInvertY(bool)` / `player.getInvertY()` — invert vertical look. Players can also toggle it live with the **I** key.
+- `player.setSensitivity(number)` / `player.getSensitivity()` — mouse-look speed.
+- Config defaults: `initPlayer({ camera: { invertY: false, sensitivity: 0.003 } })`. A stored user choice wins over the config default on reload.
+
+For any first-person app, **wire a visible control** (a toggle button + a sensitivity slider in a settings/pause panel) to `setInvertY`/`setSensitivity` — don't rely on the hidden `I` key alone. This is a default expectation, not a nice-to-have.
+
 The player is a **dynamic rigid body** (added mass 2): it shoves and knocks over dynamic Parts on contact for free. Its rotation is locked, so it stays upright and never topples.
 
 ### Network (`network`)
