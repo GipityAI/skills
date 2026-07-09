@@ -157,7 +157,7 @@ primitives.removePart(crate);
 
 **Part properties:** position, rotation (quaternion), size, anchored, canCollide, massless, mass, friction, elasticity, linearDamping, angularDamping, color, material, transparency, shape, castShadow, receiveShadow. Exact defaults: `PART_DEFAULTS` at the top of `primitives.js`. Setting `material` overrides friction+elasticity from its preset in `assets.js`.
 
-**Materials:** plastic (default), metal, wood, glass, neon, ice, grass, sand - each sets visual + physics defaults
+**Materials:** plastic (default), metal, wood, glass, neon, ice, grass, sand, concrete - each sets visual + physics defaults. An unknown name warns in the console and falls back to plastic.
 
 **Spawn points:**
 ```js
