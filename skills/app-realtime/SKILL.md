@@ -15,6 +15,19 @@ Gipity apps get WebSocket-powered rooms for multiplayer games, chat, collaborati
 
 **Most apps should build on the `@gipity/realtime` kit** (`gipity add realtime`) rather than the raw client documented further down - see "The realtime kit" below. The raw Colyseus patterns are kept as a reference and a fallback.
 
+**The realtime build loop ends with a concurrent two-client check, not a page load.** Realtime work is only "done" after `gipity page test <url> --clients 2 --observe ...` shows the clients seeing each other (details in "Verifying presence/shared state across clients" below). A single `page inspect`/`page eval` cannot verify multiplayer, and two sequential evals are a false negative - plan the test-mode hooks for this while building, not after.
+
+## Pick a room model (all built into the kit)
+
+| Model | Use for | API |
+|---|---|---|
+| **One shared space** | presence lists, chat, collab docs, dashboards | `createRealtime({ room })` + `connect()` |
+| **Spaces from the URL** | per-team / per-session spaces off one app link | same, plus `scope: <url param>` |
+| **Invite a friend** | 1v1 / private matches via share link or 4-char code | `createParty()` → `host()` / `joinFromUrl()` / `joinByCode()` |
+| **Open lobby** | browse open games, quick-match strangers | `createParty()` → `onTables()` / `join(entry)` / `quickMatch()` |
+
+Don't hand-roll a lobby, invite link, or room-code flow out of the primitives - `createParty` already owns those flows and their failure modes (cancelable hosting, typed join errors, one staleness window). Hand-rolled versions have repeatedly shipped ghost tables and UIs stuck on "Joining…".
+
 ## Room Types
 
 ### Relay Room
@@ -35,17 +48,41 @@ For anything beyond a toy, do not hand-roll the Colyseus client - run `gipity ad
 - `entities` - per-record CRUD; `authority: 'shared'` (last-write-wins) or `'host'` (elected writer + physics delta-sync).
 - `store` - synchronous whole-object key-value (`get` / `set` / `update` / `onChange`) - the shape a turn-based game or match state wants. `authority: 'host'` optional.
 
-**Multi-room (lobby games)** - one client, many rooms:
+**Party (lobby games, invite links, room codes) - use this, don't hand-roll.** `createParty(rt)` owns the whole host/join flow: share codes, invite URLs, the live table list, quick-match, cancelable hosting, and typed join failures:
+
+```js
+import { createRealtime, createParty } from '@gipity/realtime';
+const rt = createRealtime();
+const party = createParty(rt, { seats: 2 });   // uses rooms 'lobby' + 'match'
+
+// Host: share the invite link or code; cancel() if the host backs out
+const table = await party.host({ host: name });
+showShareUi(table.inviteUrl, table.code);      // e.g. a copy-link button
+table.onFull(() => startGame(table));          // opponent arrived
+backBtn.onclick = () => table.cancel();        // delists everywhere, no ghosts
+
+// Guest: an invite link joins on page load (resolves null when no ?join=)
+const joined = await party.joinFromUrl();
+// ...or: await party.joinByCode(code) / party.onTables(render) + party.join(entry)
+//        / party.quickMatch({ host: name })
+```
+
+Every failed join **throws a `RealtimeJoinError`** with `err.code` `'not-found'` | `'full'` | `'gone'` | `'auth'` | `'offline'` | `'failed'` - catch it and show the right message ("game is full", "invite expired") instead of a stuck "Joining…". Game state goes in a `store` channel on `table.channel('state', { sync: 'store' })`; `table.onPeerLeave` fires only on PERMANENT departure (the server holds a dropped seat 30 s), so it is safe as a forfeit signal. Worked file: `examples/party-game.js` in the kit.
+
+**Multi-room primitives** (what party is built on) - one client, many rooms:
 
 ```js
 import { createRealtime, createDirectory } from '@gipity/realtime';
 const rt = createRealtime();
-const lobby = await rt.join('lobby');             // shared directory room
+const lobby = await rt.join('lobby');             // joinOrCreate a shared room
 const match = await rt.create('match');           // a fresh match instance
 const other = await rt.joinById(roomId, 'match'); // join an advertised one
+const only  = await rt.joinExisting('match', { scope: code }); // join, NEVER create
 ```
 
-`createDirectory(lobby)` turns the lobby into a heartbeat'd listing of open rooms.
+All four throw `RealtimeJoinError` on failure. `createDirectory(lobby)` turns the lobby into a heartbeat'd listing of open rooms.
+
+**Scope - many spaces from one provisioned room.** `scope` is an opaque partition key: same `(room, scope)` → same instance, different scope → separate instance of the same provisioned room. Key it off a URL param so one app link serves many independent teams/sessions. **Never derive the room NAME from a URL** - unprovisioned room names are rejected by the server; derive the scope.
 
 **Reading state right after a join** - `rt.joinById(...)` resolves on **join**, before the room's state has synced. `channel.get(key)` will return `undefined` until the first sync lands. If you need to read state immediately on join (e.g. a lobby joiner inspecting the host's match state), `await new Promise((r) => channel.onReady(r))` first. Otherwise rely on `channel.onChange` to drive your UI.
 
@@ -58,7 +95,7 @@ Worked references ship inside the kit: `examples/` has one file per shape (chat,
 A who's-here / presence list has three quality gaps that are easy to miss while building and obvious in use. Make these the default for any presence app:
 
 1. **Persist identity across reloads.** Generate a stable peer id once and store it (plus the chosen name) in `localStorage`; pre-fill the name input on load so a returning teammate isn't re-prompted on every refresh.
-2. **Scope the room from the URL.** Read the room name from a path segment or `?room=` query param with a sensible default, so two different teams sharing the same app link land in separate presence lists instead of one global room.
+2. **Scope the space from the URL - via `scope`, never the room name.** Read a `?team=` (or similar) param into the `scope` option so two different teams sharing the same app link land in separate presence lists instead of one global room. The room *name* stays the provisioned one - a URL-derived room name is rejected by the server as unprovisioned.
 3. **Render a stable identity per peer.** Show an initials avatar plus the stable peer id, not the display name alone - otherwise two people both named "Sam" are indistinguishable.
 
 ```js
@@ -71,32 +108,46 @@ const peerId = localStorage.getItem('peerId')
 localStorage.setItem('peerId', peerId);
 nameInput.value = localStorage.getItem('name') || '';   // pre-fill, don't re-ask
 
-// 2. Scope the room from the URL so different teams sharing one app link get
-//    separate presence lists. Try ?room=, then a path segment, then a default.
-const room = new URLSearchParams(location.search).get('room')  // ?room=engineering
-  || location.pathname.split('/').filter(Boolean).pop()        // …/engineering/
-  || 'standup';                                                // sensible default
+// 2. Scope the SPACE from the URL so different teams sharing one app link get
+//    separate presence lists. The room name stays the provisioned one; the
+//    scope partitions it into one instance per team.
+const scope = new URLSearchParams(location.search).get('team') // ?team=engineering
+  || 'general';                                                // sensible default
 
-const rt = await createRealtime({ room });
+const rt = createRealtime({ room: 'standup', scope });  // synchronous - connect() below
 const here = rt.channel('presence', { sync: 'presence' });
 
 function announce(name) {
   localStorage.setItem('name', name);                   // remember for next visit
-  here.set({ peerId, name });                           // announce a stable identity
-}
+  here.setLocal({ peerId, name });                      // announce a stable identity
+}                                                       // (rebroadcast ~20 Hz until changed)
 
 // 3. Render a stable identity per peer so two people both named "Sam" stay distinct:
 //    an initials avatar plus the stable peer id, not the display name alone.
-here.onChange(peers => renderRoster(peers.map(p => ({
-  initials: (p.name || '?').trim().slice(0, 2).toUpperCase(),
-  name: p.name,
-  id: p.peerId,                                         // disambiguates duplicate names
-}))));
+//    onChange fires PER PEER as (sid, peer) - don't expect the whole roster as its
+//    argument. Rebuild the roster from peers(), a Map of sid → peer holding every
+//    REMOTE peer; your own state is here.local(), not in the Map.
+function renderAll() {
+  const everyone = [here.local(), ...here.peers().values()].filter(Boolean);
+  renderRoster(everyone.map(p => ({
+    initials: (p.name || '?').trim().slice(0, 2).toUpperCase(),
+    name: p.name,
+    id: p.peerId,                                       // disambiguates duplicate names
+  })));
+}
+here.onChange(renderAll);                               // (sid, peer) per update
+here.onLeave(renderAll);
+
+await rt.connect();
 ```
+
+The presence channel's surface is exactly: `setLocal(obj)`, `local()`, `peers()` (a Map), `onChange(cb)` / `onJoin(cb)` / `onLeave(cb)` (all fire per peer as `cb(sid, peer)`; `onLeave` gets just `sid`), and `metrics()`. There is **no `set()`**, and no callback ever receives the whole roster - always rebuild from `peers()`.
+
+Plain `setLocal(obj)` needs **no adapter** - payloads are merged into peer records with an `Object.assign`. A custom presence adapter (`{ encode, apply, newPeer }`, e.g. for quantized positions) is only for controlling the wire format - its contract is documented in the kit's README ("The presence adapter contract") and `contracts/adapter.contract.md`; don't reverse-engineer it from `lib/presence.js`.
 
 ## Provisioning a room
 
-A room must exist before an app can connect. There are **three equivalent ways** - all create the same room record, so pick whichever fits the workflow:
+A room must exist before an app can connect - the server rejects unprovisioned room names. `gipity add realtime` already provisions three `state`/`public` rooms: one named after the project, plus `lobby` and `match` (what `createParty` uses), so kit apps usually need no extra step. Many *instances* of one provisioned room come free via `scope` - never provision per team/session/code. For additional names there are **three equivalent ways** - all create the same room record, so pick whichever fits the workflow:
 
 - **Declarative (best for deployed apps)** - declare it in `gipity.yaml` as a `realtime` deploy phase. `gipity deploy` reconciles it (creates if missing, no-op if it exists) - reproducible, no separate step. The `3d-world` / `3d-engine` templates already ship this.
   ```yaml
@@ -184,8 +235,9 @@ if (available) {
 }
 ```
 
-> **Note:** The `room` query param is optional - omit it to list all rooms for your app.
+> **Note:** The `room` query param is optional - omit it to list all rooms for your app. Add `&scope=<value>` to list only one scope's instances.
 > **Never use** `client.getAvailableRooms()` - it does not exist in the client library.
+> Raw join options also accept `scope` (opaque instance partition key - same semantics as the kit's `scope` config above).
 
 ## Relay Room Patterns
 
@@ -410,7 +462,8 @@ Client 0 loads `?test-action=host` and client 1 `?test-action=join`, genuinely c
 No Puppeteer, no Chromium libs, no DOM driving - a passive `page test` (no `--observe`) just loads the URL, so the URL-param test mode is what makes the load alone exercise the join path. (When you'd rather drive the form than add a test mode, the interactive `page test --observe` above does the DOM driving for you.) Implement it once per multiplayer app and every realtime change is a 30-second smoke test from there on. Pair it with the `data-testid` / `data-screen` / `data-ready` conventions from `web-app-basics` for any leftover click-driven tests.
 
 ## Tips
-- The `@gipity/realtime` kit (`gipity add realtime`) covers lobby + match rooms, a `store` channel for whole-object state, presence, host election, and automatic reconnection - prefer it over hand-rolling any of the above
+- The `@gipity/realtime` kit (`gipity add realtime`) covers party flows (invite links / codes / browse / quick-match), lobby + match rooms, a `store` channel for whole-object state, presence, scope partitioning, host election, and automatic reconnection - prefer it over hand-rolling any of the above
+- A multiplayer game needs a visible share affordance: show the invite link / code with a copy button on the "waiting for opponent" screen (that is when it's needed), not after the game starts
 - Split state into many small keys, not one big JSON blob (each key change re-syncs the entire value)
 - Room config changes apply to new instances only - existing connections are unaffected
 - Room instances have a max client limit (see `realtime_room info` for current limits); the server auto-creates new instances when rooms fill up
