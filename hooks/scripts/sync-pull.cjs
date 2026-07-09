@@ -13,7 +13,12 @@
  * turns almost never have new cloud-side files. If this hook completed a pull
  * in the last PULL_INTERVAL_MS (marker file below), skip - remote changes are
  * picked up at most one interval later, and `gipity sync` remains the manual
- * catch-up. Only OUR completed pulls stamp the marker; pushes don't count.
+ * catch-up (it never rate-limits). Only OUR completed pulls stamp the marker;
+ * pushes don't count.
+ *
+ * Override: set GIPITY_PULL_INTERVAL_MS to tune the window per session or
+ * machine - `0` disables the rate limit entirely (pull on every prompt, the
+ * pre-rate-limit behavior). Unset/invalid falls back to the 15s default.
  */
 'use strict';
 const { existsSync, statSync, writeFileSync, mkdirSync } = require('fs');
@@ -21,12 +26,13 @@ const { join } = require('path');
 const { exec } = require('child_process');
 
 const MARKER = join('.gipity', 'last-pull');
-const PULL_INTERVAL_MS = 15_000;
+const envInterval = Number(process.env.GIPITY_PULL_INTERVAL_MS);
+const PULL_INTERVAL_MS = Number.isFinite(envInterval) && envInterval >= 0 ? envInterval : 15_000;
 
 if (!existsSync('.gipity.json')) process.exit(0);
 
 try {
-  if (Date.now() - statSync(MARKER).mtimeMs < PULL_INTERVAL_MS) process.exit(0);
+  if (PULL_INTERVAL_MS > 0 && Date.now() - statSync(MARKER).mtimeMs < PULL_INTERVAL_MS) process.exit(0);
 } catch { /* no marker yet - pull */ }
 
 exec('gipity sync --json', (err, out) => {
