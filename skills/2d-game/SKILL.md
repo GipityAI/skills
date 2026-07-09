@@ -146,6 +146,38 @@ After every `gipity deploy dev`:
 - **On the first deploy of a new game**, and any time you've made significant visual changes, also capture a screenshot and look at the image - `gipity page screenshot <url>` (CLI) or the `browser` agent tool's `screenshot` action (chat). To capture actual gameplay rather than the title screen, start the game in the same shot: `gipity page screenshot <url> --action "document.getElementById('play').click()"`. A clean console is NOT sufficient proof for Canvas/WebGL apps - render failures are often silent.
 - If you see a black screen with a clean console: assume a sync error fired during Phaser init (most commonly a missing API like `fillEllipse`, or physics attached to a raw Graphics). Re-read the "Common Phaser 3 Pitfalls" section above before rewriting.
 
+### Asserting on real game state (score, lives, collisions, win/lose)
+
+A screenshot proves the game *renders*; it can't prove the ball bounces, the score increments, or the win screen ever fires. Drive the **live game object** instead. `js/config.js` exports the Phaser game, and `index.html` loads it as a module - so a dynamic `import()` from `gipity page eval` resolves out of the browser's module cache and hands you **the running instance** (relative specifiers resolve against the page URL). No second game boots.
+
+**Never ship a `window.game` debug hook to do this.** That leaves instrumentation in your production bundle and costs an extra deploy.
+
+```bash
+gipity page eval "<deploy-url>" "
+  const { game } = await import('./js/config.js');
+  const s = game.scene.getScene('Game');
+  s.startGame();                               // call your own scene methods
+  return JSON.stringify({ score: s.score, lives: s.lives, state: s.state });
+"
+```
+
+For a longer driver (play a full round, force a win, assert the game-over overlay), put the script in a file and pass `--file` - no shell quoting, and the body may use `await` and `return`:
+
+```bash
+gipity page eval "<deploy-url>" --file ./tests/drive-game.js --json
+```
+
+The eval body has a **~20s in-page budget**, so split a long sequence into one call per state you're verifying.
+
+To *capture* a driven state visually, `page screenshot --action "<js>"` runs the same kind of script before the shot - same async body, same app-relative `import()`. If the action throws, you still get the image, plus a `⚠ --action failed:` line telling you it shows the **undriven** page:
+
+```bash
+gipity page screenshot "<deploy-url>" -o win.png \
+  --action "const { game } = await import('./js/config.js'); game.scene.getScene('Game').winGame();"
+```
+
+Write throwaway driver scripts and screenshots **outside the project directory** (e.g. `/tmp`) - the project auto-syncs to Gipity, so scratch files land in the user's storage. If they must live in the project, add the path to `.gipityignore`.
+
 ### Animations
 ```js
 this.anims.create({
