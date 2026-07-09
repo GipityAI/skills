@@ -8,15 +8,33 @@
  * present). When files changed, emits a systemMessage so the agent knows the
  * tree moved underneath it. Always exits 0 - sync trouble must never block
  * the user's prompt.
+ *
+ * RATE-LIMITED: the full reconcile blocks the user's prompt, and back-to-back
+ * turns almost never have new cloud-side files. If this hook completed a pull
+ * in the last PULL_INTERVAL_MS (marker file below), skip - remote changes are
+ * picked up at most one interval later, and `gipity sync` remains the manual
+ * catch-up. Only OUR completed pulls stamp the marker; pushes don't count.
  */
 'use strict';
-const { existsSync } = require('fs');
+const { existsSync, statSync, writeFileSync, mkdirSync } = require('fs');
+const { join } = require('path');
 const { exec } = require('child_process');
+
+const MARKER = join('.gipity', 'last-pull');
+const PULL_INTERVAL_MS = 15_000;
 
 if (!existsSync('.gipity.json')) process.exit(0);
 
+try {
+  if (Date.now() - statSync(MARKER).mtimeMs < PULL_INTERVAL_MS) process.exit(0);
+} catch { /* no marker yet - pull */ }
+
 exec('gipity sync --json', (err, out) => {
   if (err) process.exit(0);
+  try {
+    mkdirSync('.gipity', { recursive: true });
+    writeFileSync(MARKER, '');
+  } catch { /* marker is best-effort */ }
   try {
     const r = JSON.parse(out);
     if (r.applied > 0) {

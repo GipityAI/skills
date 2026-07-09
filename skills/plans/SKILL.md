@@ -29,9 +29,9 @@ These are all real, enforced caps. On Free they bite; Pro lifts them. Show the u
 
 | Limit | Free | Pro |
 |---|---|---|
-| Projects | 10 | 1,000 |
+| Projects | 250 | 1,000 |
 | Databases | 3 | 250 |
-| Storage | 1 GB | 1 TB |
+| Storage | 5 GB | 1 TB |
 | Workflows | 2 | 50 |
 | Cron frequency | 24h minimum | no minimum |
 | Concurrent chats | 1 | 3 |
@@ -45,6 +45,8 @@ These are all real, enforced caps. On Free they bite; Pro lifts them. Show the u
 (These are the current values; confirm with `gipity credits list`.)
 
 When a metered action fails, the error itself usually says the limit was hit and ends with an upgrade hint. Treat any "limit reached / on your plan / Pro only / Insufficient credits" error as your cue to run the upgrade play below.
+
+**Don't recommend a purchase the user's plan already includes.** Upgrading raises a limit only if a higher plan grants more of that thing, and **credit packs raise the credit balance only — never a plan limit**. So a Pro user who is out of *storage* cannot buy their way out: no plan grants more than Pro's 1 TB, and a credit pack won't help. Read what the error actually suggests instead of reflexively reaching for `gipity credits buy`. For storage specifically, the remedy is to free space — run `gipity storage usage` to see where it went, then delete files or trim version history (see the [version-history](https://docs.gipity.ai/skills/version-history.html) skill).
 
 ## The one purchase flow
 
