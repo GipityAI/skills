@@ -42,6 +42,8 @@ Server-authoritative shared state. Auto-tracks players in a synced map. Generic 
 
 For anything beyond a toy, do not hand-roll the Colyseus client - run `gipity add realtime` and build on the `@gipity/realtime` kit. It wraps everything in this doc (onStateChange diffing, tokens, reconnection, lobby + match rooms) behind a tested, engine-agnostic API. The raw Colyseus patterns - connecting by hand, room discovery over REST, relay/state message shapes, and the state-room boilerplate - are the fallback and a reference for what the kit does internally: read [app-realtime-reference](https://docs.gipity.ai/skills/app-realtime-reference.html).
 
+**The kit documents itself - `gipity skill read realtime` prints its README.** This skill covers *what to build*; the kit's own README is the *API reference* and is the right place to look up a method surface. In particular its "Rooms" section lists every room-handle method in one block - `connect` / `disconnect` / `isConnected` / `isSynced` / `peers` / `onPeerJoin` / `onPeerLeave` / `getRoomId` / `getSessionId` / `getLastError` / `channel` / `on` / `metrics` - along with the note that `onPeerLeave` already has the 30 s disconnect grace built in. Read the README and `examples/` instead of reverse-engineering `lib/`; both ship inside the app at `src/packages/realtime/`.
+
 **Channels** - one room, namespaced sub-streams. `rt.channel(name, { sync })` where `sync` is:
 - `messages` - pub/sub relay.
 - `presence` - ephemeral per-peer state (cursors, positions) at ~20 Hz.
@@ -143,7 +145,7 @@ await rt.connect();
 
 The presence channel's surface is exactly: `setLocal(obj)`, `local()`, `peers()` (a Map), `onChange(cb)` / `onJoin(cb)` / `onLeave(cb)` (all fire per peer as `cb(sid, peer)`; `onLeave` gets just `sid`), and `metrics()`. There is **no `set()`**, and no callback ever receives the whole roster - always rebuild from `peers()`.
 
-Plain `setLocal(obj)` needs **no adapter** - payloads are merged into peer records with an `Object.assign`. A custom presence adapter (`{ encode, apply, newPeer }`, e.g. for quantized positions) is only for controlling the wire format - its contract is documented in the kit's README ("The presence adapter contract") and `contracts/adapter.contract.md`; don't reverse-engineer it from `lib/presence.js`.
+Plain `setLocal(obj)` needs **no adapter** - payloads are merged into peer records with an `Object.assign`. A custom presence adapter (`{ encode, apply, newPeer }`, e.g. for quantized positions) is only for controlling the wire format - its contract is documented in the kit's README ("The presence adapter contract") and `contracts/adapter.contract.md` - the same rule as every other kit internal: the README and `examples/` are the reference, `lib/` is not.
 
 ## Provisioning a room
 
