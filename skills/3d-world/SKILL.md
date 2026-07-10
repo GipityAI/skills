@@ -57,8 +57,20 @@ Read the files before making changes - the comments explain what each one does.
 All engine modules are available via a single import:
 
 ```js
-import { world, assets, physics, player, network, ui, THREE, onInit, onUpdate, setConfig, primitives, constraints, workspace, features } from './core.js';
+import { world, assets, physics, player, network, ui, THREE, onInit, onUpdate, setConfig, primitives, constraints, workspace, features, advance, whenReady } from './core.js';
 ```
+
+### Verifying it headlessly
+
+`advance(seconds)` steps the world at a fixed timestep with rendering skipped, and `whenReady()` resolves once boot finishes. Drive them from `gipity page eval` instead of waiting on real time: the headless browser paints at ~2-3 fps and the loop caps its frame delta, so a wall-clock wait advances the simulation ~12x slower than it looks and reports collisions that never happened.
+
+```js
+const core = await import('./js/core.js');
+await core.whenReady();
+core.advance(3);   // 3s of world time, ~110ms real, bit-identical every run
+```
+
+Both are exported from `core.js`. See the `app-debugging` skill.
 
 ### Lifecycle
 
