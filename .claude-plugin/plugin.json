@@ -1,7 +1,7 @@
 {
   "name": "gipity",
   "description": "Gipity cloud for Claude Code - hosting, Postgres databases, serverless functions, auth, file storage, realtime, and AI services (image, speech, LLM), all driven by the gipity CLI. Build, deploy, and verify live apps without leaving your session.",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "author": {
     "name": "Gipity",
     "email": "steve@gipity.ai",
