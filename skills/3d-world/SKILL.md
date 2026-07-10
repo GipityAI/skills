@@ -141,7 +141,10 @@ onUpdate((dt) => {
 - `physics.addKinematicBody(pos, halfExtents)` - Kinematic controller
 - `physics.addTrigger(pos, halfExtents, {onEnter, onExit})` - Sensor zone
 - `physics.removeBody(body)` - Remove a body
-- `physics.castRay(origin, dir, maxDist)` - Raycast
+- `physics.castRay(origin, dir, maxDist, excludeBody?)` - Raycast; returns `{ point, distance, collider }` or `null`. Pass the shooter's own body as `excludeBody` so a shot doesn't hit itself.
+- `physics.applyImpulse(body, {x,y,z})` - Shove a body (pure translation, no spin). Use `part._body` for a Part.
+- `physics.applyImpulseAtPoint(body, {x,y,z}, worldPoint)` - Shove with torque from the offset, so edge hits spin realistically.
+- `physics.queryNearby(pos, radius)` - Broadphase proximity; returns `[{ collider, body }]` (explosions, area effects).
 
 ### World Primitives (`primitives`) - v13+
 
@@ -224,8 +227,8 @@ World-level settings:
 
 ```js
 workspace.gravity = {x: 0, y: -30, z: 0};
-workspace.snapEnabled = true;        // auto-snap nearby parts (creates Weld)
-workspace.snapDistance = 0.15;
+workspace.snapEnabled = false;       // DEFAULT IS true: any two dynamic Parts within snapDistance auto-WELD into one rigid body. Great for snap-together building, but it fuses a hand-stacked tower solid so it can't topple. Set false for free-tumbling physics.
+workspace.snapDistance = 0.15;       // weld radius when snap is on
 workspace.lighting.timeOfDay = 18;   // sunset (0-24)
 workspace.lighting.fogEnabled = true;
 workspace.lighting.fogNear = 40;
