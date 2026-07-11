@@ -65,6 +65,20 @@ gipity credits buy 20000  # (Pro only) buy a credit pack by its credit amount
 
 **As the cloud agent (Gip):** same thing via the `credits_products` (compare) and `credits_purchase` (get the checkout link) tools. Same endpoint, same checkout, same result — just a different surface. `credits_purchase` with `product: "pro"` returns the link to open in the user's browser.
 
+**On the web:** the same flow lives at [prompt.gipity.ai/pricing](https://prompt.gipity.ai/pricing) — reachable from the gear icon (Settings → Plan) in the web app.
+
+## Cancelling or managing a subscription
+
+Self-serve, same on every surface — it all opens the **Stripe billing portal** (cancel, renew, update card, view invoices):
+
+```bash
+gipity credits manage     # prints the billing portal link (alias: credits cancel)
+```
+
+On the web: **Settings (gear) → Plan → Manage → Manage subscription** on the pricing page.
+
+What to tell the user, honestly: cancelling takes effect **at the end of the current billing period** — they keep Pro and their remaining credits until then, and already-granted credits are **not** revoked when the plan drops to Free (they still expire on their own schedule). A cancelled-but-not-yet-ended subscription can be renewed from the same portal. Never present cancelling as instant loss of what they paid for.
+
 ## The upgrade play (when a user is blocked)
 
 1. **Name what they hit.** "You're on Free, which caps X at N — that's why this failed."

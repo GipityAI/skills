@@ -56,6 +56,8 @@ vision.stop();                      // release camera + free model memory
 
 Each detection is `{ label, classId, score, box: { x, y, width, height } }` in source-frame pixels - drawing on a canvas sized to the frame lines up 1:1 (`mountDetect` already draws boxes; `onResult` is for app logic like counting).
 
+Detections arrive sorted by descending `score`, and suppression is **class-aware** - a box only suppresses an overlapping box of the *same* `classId`. So one real-world object can surface as several overlapping detections with different labels: an ambiguous animal yields both a `cat` box and a `dog` box. Don't assume one detection per object. When a class must not fire for a look-alike (`dog` but never `cat`), compare the overlapping boxes' scores and require a margin, rather than acting on the first matching label you find.
+
 For a custom loop, compose the low-level exports instead: `createDetector`, `startCamera`, `createLoop`, `drawDetections`, plus pure-math `decodeYolox` / `decodeYolo` / `nms`. See `src/packages/web-vision-detect/examples/` and its `README.md`.
 
 ## Models
