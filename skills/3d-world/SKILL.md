@@ -447,10 +447,15 @@ functions:
 
 ## Mobile Support
 
-Touch controls are automatic:
-- Left side: virtual joystick (movement)
-- Right side: Jump + Action buttons
-- Template detects mobile and shows controls automatically
+Touch controls are automatic (built by the engine's `js/mobile.js`, wired in `player.js`):
+- Left half: **floating virtual joystick** - the pad appears wherever the thumb lands; analog movement
+- Bottom-right: **Jump** (primary, bigger) + **Action** buttons; Action drives `inputState.action` (same as the E key - the rocket-launcher feature fires from it)
+- Drag anywhere else on the canvas: orbit the camera
+- Top-right: **fullscreen toggle** (auto-hidden where the Fullscreen API is unavailable, e.g. iPhone Safari - there "Add to Home Screen" runs fullscreen via the template's PWA meta tags)
+- Detection is by pointer type (`pointer: coarse`), so phones AND tablets get controls in both portrait and landscape; hybrid touchscreen laptops get them on first touch. Nothing renders on mouse-only desktops.
+- Buttons respect notch/home-bar safe areas; multi-touch is tracked per pointer so joystick + button + camera drag work simultaneously
+
+Keep custom games working on both inputs: read movement from `player.inputState` (fed by keyboard and joystick alike) and trigger actions from `inputState.action` / `inputState.jump` rather than raw key events.
 
 ## Features (Opt-in Gameplay Modules)
 

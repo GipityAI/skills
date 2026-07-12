@@ -27,7 +27,7 @@ add name=2d-game title="<Game Name>"
 
 **Naming:** Use the user's name verbatim if given. If they didn't specify, blend "Gip" or "Gipity" into the name (e.g. "Gipity Racer", "Gip Tac Toe") - be creative but don't force it.
 
-This creates a playable game immediately - colored rectangle player, keyboard controls, arcade physics, ground platform. Then edit `scenes/game.js` and `settings.js` to build your game.
+This creates a playable game immediately - colored rectangle player, arcade physics, ground platform, and controls that work on desktop AND mobile out of the box (WASD/arrows + Space on keyboard; a floating virtual joystick, Jump button, and fullscreen toggle on touch devices). Then edit `scenes/game.js` and `settings.js` to build your game.
 
 ## Project Structure
 
@@ -36,6 +36,7 @@ src/
   index.html            - Phaser CDN, game container, module entry
   js/
     config.js           - Phaser.Game config, scene registration
+    controls.js         - Touch controls overlay (virtual joystick, buttons, fullscreen)
     settings.js         - Tunable values (canvas, colors, physics, player, gameplay)
     strings.js          - User-facing display text
     scenes/
@@ -237,14 +238,27 @@ import { MyScene } from './scenes/myScene.js';
 
 ## Mobile / Touch
 
-Phaser handles touch automatically for pointer events. For virtual controls:
+The template is mobile-ready by default via `js/controls.js` - a DOM overlay above the canvas that renders only on touch devices (nothing shows on desktop). It gives the standard mobile-game layout: a **floating virtual joystick** on the left half (the pad appears wherever the thumb lands), **round action buttons** bottom-right, and a **fullscreen toggle** top-right (auto-hidden where the Fullscreen API is unavailable, e.g. iPhone Safari - there, "Add to Home Screen" runs fullscreen via the template's PWA meta tags). Multi-touch is tracked per pointer, so joystick + buttons work simultaneously.
+
 ```js
-// On-screen buttons
-const jumpBtn = this.add.rectangle(700, 500, 80, 80, 0x333333, 0.5).setInteractive();
-jumpBtn.on('pointerdown', () => { body.setVelocityY(jumpForce); });
+import { touch, initTouchControls } from '../controls.js';
+
+// create(): declare the buttons your game needs (first = primary, biggest)
+initTouchControls({ buttons: [{ id: 'jump', label: 'Jump' }, { id: 'fire', label: 'Fire' }] });
+// tap-only game? disable the joystick so it doesn't swallow lower-left taps:
+// initTouchControls({ joystick: false, buttons: [...] });
+
+// update(): merge with keyboard - joystick is analog (-1..1)
+const keyX = (cursors.right.isDown ? 1 : 0) - (cursors.left.isDown ? 1 : 0);
+const moveX = keyX !== 0 ? keyX : touch.x;            // touch.y for vertical
+body.setVelocityX(moveX * speed);
+if (touch.isDown('jump')) { /* held */ }
+if (touch.justPressed('fire')) { /* once per press */ }
 ```
 
-For mobile-responsive canvas, the template uses `Phaser.Scale.FIT` + `CENTER_BOTH` by default.
+Always keep desktop AND touch input working: keyboard = WASD + arrows (both), plus the matching touch buttons. `touch.enabled` tells you touch controls are active (e.g. to swap instruction text). Phaser still handles in-canvas taps via pointer events (`this.input.on('pointerdown', ...)`), with 3 active pointers configured.
+
+For mobile-responsive canvas, the template uses `Phaser.Scale.FIT` + `CENTER_BOTH` by default - the game keeps its `settings.canvas` coordinate system and letterboxes to fit any screen or orientation. The page is hardened for games (no pinch-zoom, no overscroll, no text selection; `dvh` viewport).
 
 ## Deploy Verification
 
