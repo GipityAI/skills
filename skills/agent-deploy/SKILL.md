@@ -5,7 +5,7 @@ description: "Use when an AI agent, script, or CI job needs to deploy to or oper
 
 <!-- GENERATED from platform/docs/skills/agent-deploy.md by platform/scripts/sync-claude-plugin.ts - do not edit here. -->
 
-> **Gipity required.** This skill needs the `gipity` CLI linked to a project. If `gipity status` errors or shows no project, run the setup flow in the `gipity` skill (or `/gipity:setup`) first.
+> **Gipity required.** This skill needs the `gipity` CLI linked to a project. If `gipity status` errors or shows no project, run the setup flow in the `gipity` skill first (in Claude Code or Grok: `/gipity:setup`).
 >
 > This doc is shared across Gipity surfaces; where it names an agent tool, use the CLI equivalent: `add` → `gipity add <name>`, `file_write`/`file_read`/`file_delete` → edit files in the project directory directly (they auto-sync), `project_deploy` → `gipity deploy dev`, `code_execute` → `gipity sandbox run`. The live version of this doc: `gipity skill read agent-deploy`.
 

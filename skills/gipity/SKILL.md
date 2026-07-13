@@ -17,7 +17,7 @@ Run `gipity status`. It tells you which of the three setup stages the user is at
 2. **Not logged in** → log in.
    - **Interactive (a human is at the keyboard):** two-step email verification - `gipity login --email <their-email>` sends a 6-digit code to their inbox (also signs them up if they're new; no separate signup step), then `gipity login --code <code>` with the code they read back.
    - **Headless (no human to read the email - an autonomous agent, CI, or an ephemeral container):** you can't complete the email step, so authenticate with a long-lived **agent API token** instead. Set `GIPITY_TOKEN=gip_at_…` (minted once with `gipity token create`) in the environment and the CLI skips login entirely. See `gipity skill read agent-deploy`.
-3. **No project linked in this directory** → `gipity init` links the cwd as a project (slug defaults to the directory name; pass a name to override). It writes a `CLAUDE.md` primer, `.gipity.json` config, and Claude Code hooks that auto-sync every file write to the cloud.
+3. **No project linked in this directory** → `gipity init` links the cwd as a project (slug defaults to the directory name; pass a name to override). It writes primer files for your coding agent (`CLAUDE.md`, `AGENTS.md`, …), a `.gipity.json` config, and - for the agent CLIs found on the machine (Claude Code, Grok, Codex) - the Gipity skills and hooks that auto-sync every file write to the cloud.
 
 If `gipity status` shows a linked project, setup is done - skip straight to building.
 
@@ -25,7 +25,7 @@ If `gipity status` shows a linked project, setup is done - skip straight to buil
 
 ## After linking: the project docs take over
 
-`gipity init` writes the full integration guide into the project's `CLAUDE.md`, and the platform serves live, versioned documentation:
+`gipity init` writes the full integration guide into the project's primer files (`CLAUDE.md` / `AGENTS.md` / `GEMINI.md`, …), and the platform serves live, versioned documentation:
 
 - `gipity skill list` - the full catalog (app services, templates, sandbox tools, debugging)
 - `gipity skill read <name>` - load one before using that area (e.g. `app-llm`, `app-auth`, `web-app-basics`, `sandbox-tools`)

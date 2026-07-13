@@ -6,14 +6,14 @@
     "url": "https://gipity.ai"
   },
   "metadata": {
-    "description": "Official Gipity plugins for Claude Code",
+    "description": "Official Gipity plugins for agent CLIs (Claude Code, Grok, Codex, ...)",
     "version": "1.0.0"
   },
   "plugins": [
     {
       "name": "gipity",
       "source": "./",
-      "description": "Gipity cloud for Claude Code - hosting, Postgres databases, serverless functions, auth, file storage, realtime, and AI services (image, speech, LLM), all driven by the gipity CLI. Build, deploy, and verify live apps without leaving your session.",
+      "description": "Gipity cloud for agent CLIs (Claude Code, Grok, Codex, ...) - hosting, Postgres databases, serverless functions, auth, file storage, realtime, and AI services (image, speech, LLM), all driven by the gipity CLI. Build, deploy, and verify live apps without leaving your session.",
       "category": "deployment"
     }
   ]

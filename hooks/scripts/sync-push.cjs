@@ -34,6 +34,10 @@ const { homedir } = require('os');
 
 const PENDING = join('.gipity', 'push-pending.txt');
 const LOCK = join('.gipity', 'push-flush.lock');
+// Sentinel pending-file line meaning "the harness couldn't name the edited
+// file - reconcile everything". Starts with a NUL-adjacent char no real path
+// uses, so it can never collide with a filename.
+const SYNC_ALL = '\x01sync-all';
 const DEBOUNCE_MS = 400;
 // A lock older than this is a crashed flusher; take over. Kept generous so a
 // slow push (big file, slow network) isn't mistaken for a corpse - and the
@@ -107,19 +111,28 @@ function flush() {
     } catch { /* unreadable batch - drop it; full sync self-corrects */ }
     if (files.length && cli) {
       try { const now = new Date(); utimesSync(LOCK, now, now); } catch { /* lock raced */ }
-      const batch = spawnSync(process.execPath, [cli, 'push', ...files, '--quiet'], {
-        stdio: 'ignore',
-        windowsHide: true,
-      });
-      // Fallback: a CLI from before multi-file `push` rejects >1 argument.
-      // Re-push one at a time so a stale install degrades to the old
-      // one-process-per-file behavior instead of silently dropping the batch.
-      if (batch.status !== 0 && files.length > 1) {
-        for (const f of files) {
-          spawnSync(process.execPath, [cli, 'push', f, '--quiet'], {
-            stdio: 'ignore',
-            windowsHide: true,
-          });
+      if (files.includes(SYNC_ALL)) {
+        // At least one edit couldn't be attributed to a path - one full
+        // reconcile covers the named files too, so replace the whole batch.
+        spawnSync(process.execPath, [cli, 'sync', '--json'], {
+          stdio: 'ignore',
+          windowsHide: true,
+        });
+      } else {
+        const batch = spawnSync(process.execPath, [cli, 'push', ...files, '--quiet'], {
+          stdio: 'ignore',
+          windowsHide: true,
+        });
+        // Fallback: a CLI from before multi-file `push` rejects >1 argument.
+        // Re-push one at a time so a stale install degrades to the old
+        // one-process-per-file behavior instead of silently dropping the batch.
+        if (batch.status !== 0 && files.length > 1) {
+          for (const f of files) {
+            spawnSync(process.execPath, [cli, 'push', f, '--quiet'], {
+              stdio: 'ignore',
+              windowsHide: true,
+            });
+          }
         }
       }
     }
@@ -136,10 +149,17 @@ if (process.argv[2] === '--flush') {
   process.stdin.on('end', () => {
     try {
       if (!existsSync('.gipity.json')) return;
-      const filePath = JSON.parse(data).tool_input?.file_path;
-      if (!filePath) return;
+      // Payload schemas differ per harness: Claude Code sends snake_case
+      // (tool_input.file_path), Grok Build camelCase (toolInput), and Codex's
+      // file-edit tool (apply_patch) carries a patch blob with no single path.
+      // When the edited file can't be named, queue a SYNC_ALL sentinel instead
+      // - the flusher turns it into one full `gipity sync`, so the edit still
+      // reaches the cloud on the same debounce.
+      const payload = JSON.parse(data);
+      const ti = payload.tool_input ?? payload.toolInput ?? {};
+      const filePath = ti.file_path ?? ti.filePath ?? ti.path ?? ti.target_file;
       mkdirSync('.gipity', { recursive: true });
-      appendFileSync(PENDING, filePath + '\n');
+      appendFileSync(PENDING, (typeof filePath === 'string' && filePath ? filePath : SYNC_ALL) + '\n');
       if (!acquireFlusherLock()) return; // live flusher will pick it up
       spawn(process.execPath, [process.argv[1], '--flush'], {
         stdio: 'ignore',

@@ -35,6 +35,13 @@ const { homedir } = require('os');
 
 if (process.env.GIPITY_CAPTURE === 'off') process.exit(0);
 
+// Capture parses Claude Code's transcript format and events. This same plugin
+// also loads in Grok Build (which runs Claude-format plugin hooks natively and
+// sets GROK_HOOK_EVENT on every hook process) - skip there until per-harness
+// capture lands, so Grok sessions aren't mislabeled as Claude Code ones.
+// File-sync hooks (sync-push/sync-pull) stay active under Grok.
+if (process.env.GROK_HOOK_EVENT) process.exit(0);
+
 // Find the project's .gipity.json by walking up from cwd - the session may
 // have been launched in a subdirectory of the project. Mirrors the CLI's
 // own config resolution.
