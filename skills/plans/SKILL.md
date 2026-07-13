@@ -37,6 +37,7 @@ These are all real, enforced caps. On Free they bite; Pro lifts them. Show the u
 | Concurrent chats | 1 | 3 |
 | Deploys/min | 5 | 10 |
 | Parallel test files | 2 | 4 |
+| Custom domains | 10 | 50 |
 | Video generation | Pro only | unlimited |
 | Music generation | Pro only | unlimited |
 | Image generation | 3/mo free | unlimited |
