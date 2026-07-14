@@ -5,7 +5,7 @@ description: "Use when the user wants to build and put online a full-stack web a
 
 <!-- GENERATED from platform/docs/skills/web-app-basics.md by platform/scripts/sync-claude-plugin.ts - do not edit here. -->
 
-> **Gipity required.** This skill needs the `gipity` CLI linked to a project. If `gipity status` errors or shows no project, run the setup flow in the `gipity` skill first (in Claude Code or Grok: `/gipity:setup`).
+> **Gipity required.** This skill needs the `gipity` CLI linked to a project. If `gipity status` errors or shows no project, run the setup flow in the `gipity` skill first (in Claude Code or Grok: `/gipity:setup`; in Codex or any other agent, follow the `gipity` skill's setup steps directly).
 >
 > This doc is shared across Gipity surfaces; where it names an agent tool, use the CLI equivalent: `add` → `gipity add <name>`, `file_write`/`file_read`/`file_delete` → edit files in the project directory directly (they auto-sync), `project_deploy` → `gipity deploy dev`, `code_execute` → `gipity sandbox run`. The live version of this doc: `gipity skill read web-app-basics`.
 
@@ -132,23 +132,9 @@ A deployed app should not depend on a third-party CDN being up to perform its co
 
 ## Browser Debugging
 
-Pick the right one - inspect for health, test for behavior, the agent tool for deep digs:
+Deploy, then look at the page - never assume it worked. `gipity deploy dev --inspect` deploys and reports the live page in one step (console errors, failed resources, timing, layout overflow); `gipity page screenshot <url>` shows what it actually renders; `gipity page test <url> --action <js> --observe <js>` drives an interactive feature and asserts the headline behavior really works (e.g. "type a message → get an AI reply") instead of just proving the page loaded. Don't hand-roll a DOM-poking `page eval` script for that.
 
-**`gipity page inspect <url>`** (CLI) - one-shot inspection. Returns console errors, failed resources, timing, oversized images. No actions, no screenshots. Use this first after every deploy.
-Options: `--wait <ms>` (default 500), `--json`. If unsure: `gipity page inspect --help`.
-
-**`gipity page screenshot <url>`** (CLI) - capture what the page actually renders. Viewport by default; add `--full` for the entire scrollable page (no need to scroll the page yourself — it walks the page through first, so scroll-reveal / fade-in-on-scroll sections trigger and render into the shot instead of capturing blank below the fold). To capture a state that only appears after an interaction (a started game, an opened menu), add `--action "<js>"` - it clicks/runs your JS, settles, then shoots: `--action "document.getElementById('play').click()"`. Don't return a base64 image from `page eval` (the result is capped and truncates the PNG). Use this for the CLI screenshot path - don't reach for a `browser`/scroll tool, the CLI covers it.
-
-**`gipity page test <url> --action <js> --observe <js>`** (CLI) - drive an interactive feature and assert it actually works, not just that the page loaded. Each client runs `--action` once (click, type, submit), then samples `--observe` across a hold window and reports the values back. This is the supported way to confirm the headline behavior - e.g. "type a message → get an AI reply" - after a deploy; don't hand-roll a `gipity page eval` script that pokes the DOM and polls yourself. One client is fine (`--clients 1`); use 2+ to verify multi-client/realtime state. `gipity page test --help` for worked examples.
-
-**`browser` agent tool** (Gip only) - interactive debugging with actions, when running inside Gip. Use when the CLI inspection surfaces something you need to dig into:
-- `open` → `snapshot` - read DOM/accessibility tree
-- `console` - captured `console.error`/`console.warn`
-- `eval` - run JS expressions (check variables, DOM state)
-- `screenshot` - always use for Canvas/WebGL; a clean console isn't proof the page rendered
-- `click`, `fill`, `type`, `select` - form/nav flows
-
-Flow: deploy → `gipity page inspect <url>` → if anything's off, switch to the agent tool.
+**Full debugging loop → the [app-debugging](https://docs.gipity.ai/skills/app-debugging.html) skill:** every flag on inspect/screenshot/eval, reading function logs, calling a function directly, and what the headless browser can't test.
 
 ## Build Incrementally
 
@@ -177,46 +163,17 @@ Don't bloat it - a couple of these turn a 4/5 into a 5/5; ten of them turn a sim
 
 For the concrete recipes behind this section - the default Gipity theme, entry lists/feeds, copy-to-clipboard - load `web-ui-patterns`.
 
-## Verification After Deploy
-
-After `gipity deploy dev`:
-- ALWAYS check the console (`gipity page inspect <url>` or the `browser` agent tool `open` action).
-- On the **first deploy** of a new app, and any time visual output matters (Canvas, WebGL, complex layout), also capture a **screenshot** and look at it. "Clean console" is necessary but NOT sufficient for Canvas/WebGL - render failures are often silent and the console interceptor can miss sync errors that fired during initial script parse.
-- If you see a blank page, black canvas, or wrong-looking UI with a clean console: treat that as a real failure and investigate (screenshot, `eval` DOM state, re-read skill docs for gotchas) - don't declare success.
-
 ## Deploy Verification
 
-Use the browser tool to verify deploys when it matters - first deploy, structural changes (new pages, new frameworks, changed imports), or when something might have broken. Skip verification for trivial changes (copy tweaks, style adjustments, config values).
+Verify a deploy when it matters - the first deploy, structural changes (new pages, new frameworks, changed imports), or anything that might have broken. Skip it for trivial changes (copy tweaks, style values).
 
-To verify: `browser action=open url=<deployed-url>` - waits for async modules, captures console errors automatically. Check output for `[Console errors captured after page load]`. Use `browser action=screenshot` to confirm visual correctness.
+`gipity deploy dev --inspect` deploys and reports the live page in one step: console errors, failed resources, timing, layout overflow. A clean console is necessary but NOT sufficient for Canvas/WebGL - also capture `gipity page screenshot <url>` and look at it, because render failures are silent. A blank page, black canvas, or wrong-looking UI with a clean console is a real failure, not a pass.
 
-**Debugging in production:** Add `console.error()` calls to app code for diagnostics, redeploy, then use `browser action=console` to read the output. Remove debug logging when done.
+Full loop - reading function logs, calling a function directly, driving the page: the `app-debugging` skill.
 
-## 3D World
+## Games
 
-**3D World** is the 3D multiplayer game template on Gipity. All 3D World games share the same visual style, physics engine (Rapier), and multiplayer backend (Colyseus). All files are fully editable.
-
-Add a 3D World project with `add name=3d-world` (web agent) or `gipity add 3d-world` (CLI). This creates a playable 3D game with Three.js + Rapier physics + Colyseus multiplayer. Key files: `config.js` (metadata), `settings.js` (tunable values), `strings.js` (display text), `objects.js` (entity factories), `game.js` (orchestrator), plus engine files (`core.js`, `world.js`, `physics.js`, etc.).
-
-**Genres:** obby/parkour, tycoon, simulator, PvP combat, shooter, tower defense, horror, racing, RPG, social.
-
-**Features:** Opt-in gameplay modules enabled via `config.features`. Available: `rocket-launcher` (projectile weapon with physics explosions). Example: `features: { 'rocket-launcher': true }` in config.js. Features auto-initialize during boot.
-
-Regular game requests ("make a wordle", "build a quiz") should use the standard web template - they don't need the 3D template.
-
-Load `3d-engine` for a blank-slate template, or `3d-world` for the full API, genre recipes, and playable starter.
-
-## 2D Game
-
-**2D Game** is the Phaser-based 2D game template on Gipity. It creates a fully editable project with the Phaser 3 game engine loaded via CDN - no build step, no locked files.
-
-Add a 2D game with `add name=2d-game` (web agent) or `gipity add 2d-game` (CLI). This creates a playable 2D game with arcade physics, keyboard input, and a Boot/Game scene structure. All files are editable: `config.js` (Phaser setup), `settings.js` (tunable values), `strings.js` (display text), `scenes/boot.js` (preloader), `scenes/game.js` (main gameplay).
-
-**Genres:** side-scroller, platformer, top-down, arcade, puzzle, endless runner, shooter, RPG.
-
-Use `2d-game` when the user wants a 2D game with physics, sprites, or scene management. Use `web` for simple games (wordle, quiz, card games) that don't need a game engine. Use `3d-world` for 3D multiplayer games.
-
-Load `2d-game` for the full Phaser API and genre recipes.
+Building a game? Don't hand-roll it - add the template and load its skill. **3D or multiplayer** (obby, tycoon, PvP, shooter): `3d-engine` for a blank slate, `3d-world` for a playable starter - Three.js + Rapier physics + Gipity Realtime, genre recipes in the skill. **2D** (platformer, scroller, arcade, puzzle, endless runner): `2d-game` - Phaser 3, no build step. Simple games with no engine need (wordle, quiz, cards) stay on `web-simple`.
 
 ## Make it testable
 

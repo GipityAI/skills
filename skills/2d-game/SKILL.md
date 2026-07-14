@@ -5,7 +5,7 @@ description: "Use when the user wants to build a 2D browser game - platformer, s
 
 <!-- GENERATED from platform/docs/skills/2d-game.md by platform/scripts/sync-claude-plugin.ts - do not edit here. -->
 
-> **Gipity required.** This skill needs the `gipity` CLI linked to a project. If `gipity status` errors or shows no project, run the setup flow in the `gipity` skill first (in Claude Code or Grok: `/gipity:setup`).
+> **Gipity required.** This skill needs the `gipity` CLI linked to a project. If `gipity status` errors or shows no project, run the setup flow in the `gipity` skill first (in Claude Code or Grok: `/gipity:setup`; in Codex or any other agent, follow the `gipity` skill's setup steps directly).
 >
 > This doc is shared across Gipity surfaces; where it names an agent tool, use the CLI equivalent: `add` → `gipity add <name>`, `file_write`/`file_read`/`file_delete` → edit files in the project directory directly (they auto-sync), `project_deploy` → `gipity deploy dev`, `code_execute` → `gipity sandbox run`. The live version of this doc: `gipity skill read 2d-game`.
 
@@ -170,6 +170,18 @@ gipity page eval "<deploy-url>" --file ./tests/drive-game.js --json
 
 The eval body has a **~20s in-page budget**, so split a long sequence into one call per state you're verifying.
 
+**Never wait wall-clock time for physics/animation to play out** - the headless browser can paint at ~15 fps, so `setTimeout(2000)` advances far less than 2s of game time and assertions report false negatives. `config.js` also exports `advance(seconds)`: it pauses the browser loop and ticks Phaser's TimeStep by hand, so N simulated seconds (physics, timers, collisions) run in milliseconds, deterministically:
+
+```bash
+gipity page eval "<deploy-url>" "
+  const { game, advance } = await import('./js/config.js');
+  const s = game.scene.getScene('Game');
+  s.startGame();
+  advance(5);                                  // 5s of game time, instantly
+  return JSON.stringify({ score: s.score, bricks: s.bricks.countActive() });
+"
+```
+
 To *capture* a driven state visually, `page screenshot --action "<js>"` runs the same kind of script before the shot - same async body, same app-relative `import()`. If the action throws, you still get the image, plus a `⚠ --action failed:` line telling you it shows the **undriven** page:
 
 ```bash
@@ -262,8 +274,8 @@ For mobile-responsive canvas, the template uses `Phaser.Scale.FIT` + `CENTER_BOT
 
 ## Deploy Verification
 
-Use the browser tool to verify deploys when it matters - first deploy, structural changes (new pages, new frameworks, changed imports), or when something might have broken. Skip verification for trivial changes (copy tweaks, style adjustments, config values).
+Verify a deploy when it matters - the first deploy, structural changes (new pages, new frameworks, changed imports), or anything that might have broken. Skip it for trivial changes (copy tweaks, style values).
 
-To verify: `browser action=open url=<deployed-url>` - waits for async modules, captures console errors automatically. Check output for `[Console errors captured after page load]`. Use `browser action=screenshot` to confirm visual correctness.
+`gipity deploy dev --inspect` deploys and reports the live page in one step: console errors, failed resources, timing, layout overflow. A clean console is necessary but NOT sufficient for Canvas/WebGL - also capture `gipity page screenshot <url>` and look at it, because render failures are silent. A blank page, black canvas, or wrong-looking UI with a clean console is a real failure, not a pass.
 
-**Debugging in production:** Add `console.error()` calls to app code for diagnostics, redeploy, then use `browser action=console` to read the output. Remove debug logging when done.
+Full loop - reading function logs, calling a function directly, driving the page: the `app-debugging` skill.
