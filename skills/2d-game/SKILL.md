@@ -5,7 +5,7 @@ description: "Use when the user wants to build a 2D browser game - platformer, s
 
 <!-- GENERATED from platform/docs/skills/2d-game.md by platform/scripts/sync-claude-plugin.ts - do not edit here. -->
 
-> **Gipity required.** This skill needs the `gipity` CLI linked to a project. If `gipity status` errors or shows no project, run the setup flow in the `gipity` skill (or `/gipity:setup`) first.
+> **Gipity required.** This skill needs the `gipity` CLI linked to a project. If `gipity status` errors or shows no project, run the setup flow in the `gipity` skill first (in Claude Code or Grok: `/gipity:setup`; in Codex or any other agent, follow the `gipity` skill's setup steps directly).
 >
 > This doc is shared across Gipity surfaces; where it names an agent tool, use the CLI equivalent: `add` → `gipity add <name>`, `file_write`/`file_read`/`file_delete` → edit files in the project directory directly (they auto-sync), `project_deploy` → `gipity deploy dev`, `code_execute` → `gipity sandbox run`. The live version of this doc: `gipity skill read 2d-game`.
 
@@ -27,7 +27,7 @@ add name=2d-game title="<Game Name>"
 
 **Naming:** Use the user's name verbatim if given. If they didn't specify, blend "Gip" or "Gipity" into the name (e.g. "Gipity Racer", "Gip Tac Toe") - be creative but don't force it.
 
-This creates a playable game immediately - colored rectangle player, keyboard controls, arcade physics, ground platform. Then edit `scenes/game.js` and `settings.js` to build your game.
+This creates a playable game immediately - colored rectangle player, arcade physics, ground platform, and controls that work on desktop AND mobile out of the box (WASD/arrows + Space on keyboard; a floating virtual joystick, Jump button, and fullscreen toggle on touch devices). Then edit `scenes/game.js` and `settings.js` to build your game.
 
 ## Project Structure
 
@@ -36,6 +36,7 @@ src/
   index.html            - Phaser CDN, game container, module entry
   js/
     config.js           - Phaser.Game config, scene registration
+    controls.js         - Touch controls overlay (virtual joystick, buttons, fullscreen)
     settings.js         - Tunable values (canvas, colors, physics, player, gameplay)
     strings.js          - User-facing display text
     scenes/
@@ -146,6 +147,50 @@ After every `gipity deploy dev`:
 - **On the first deploy of a new game**, and any time you've made significant visual changes, also capture a screenshot and look at the image - `gipity page screenshot <url>` (CLI) or the `browser` agent tool's `screenshot` action (chat). To capture actual gameplay rather than the title screen, start the game in the same shot: `gipity page screenshot <url> --action "document.getElementById('play').click()"`. A clean console is NOT sufficient proof for Canvas/WebGL apps - render failures are often silent.
 - If you see a black screen with a clean console: assume a sync error fired during Phaser init (most commonly a missing API like `fillEllipse`, or physics attached to a raw Graphics). Re-read the "Common Phaser 3 Pitfalls" section above before rewriting.
 
+### Asserting on real game state (score, lives, collisions, win/lose)
+
+A screenshot proves the game *renders*; it can't prove the ball bounces, the score increments, or the win screen ever fires. Drive the **live game object** instead. `js/config.js` exports the Phaser game, and `index.html` loads it as a module - so a dynamic `import()` from `gipity page eval` resolves out of the browser's module cache and hands you **the running instance** (relative specifiers resolve against the page URL). No second game boots.
+
+**Never ship a `window.game` debug hook to do this.** That leaves instrumentation in your production bundle and costs an extra deploy.
+
+```bash
+gipity page eval "<deploy-url>" "
+  const { game } = await import('./js/config.js');
+  const s = game.scene.getScene('Game');
+  s.startGame();                               // call your own scene methods
+  return JSON.stringify({ score: s.score, lives: s.lives, state: s.state });
+"
+```
+
+For a longer driver (play a full round, force a win, assert the game-over overlay), put the script in a file and pass `--file` - no shell quoting, and the body may use `await` and `return`:
+
+```bash
+gipity page eval "<deploy-url>" --file ./tests/drive-game.js --json
+```
+
+The eval body has a **~20s in-page budget**, so split a long sequence into one call per state you're verifying.
+
+**Never wait wall-clock time for physics/animation to play out** - the headless browser can paint at ~15 fps, so `setTimeout(2000)` advances far less than 2s of game time and assertions report false negatives. `config.js` also exports `advance(seconds)`: it pauses the browser loop and ticks Phaser's TimeStep by hand, so N simulated seconds (physics, timers, collisions) run in milliseconds, deterministically:
+
+```bash
+gipity page eval "<deploy-url>" "
+  const { game, advance } = await import('./js/config.js');
+  const s = game.scene.getScene('Game');
+  s.startGame();
+  advance(5);                                  // 5s of game time, instantly
+  return JSON.stringify({ score: s.score, bricks: s.bricks.countActive() });
+"
+```
+
+To *capture* a driven state visually, `page screenshot --action "<js>"` runs the same kind of script before the shot - same async body, same app-relative `import()`. If the action throws, you still get the image, plus a `⚠ --action failed:` line telling you it shows the **undriven** page:
+
+```bash
+gipity page screenshot "<deploy-url>" -o win.png \
+  --action "const { game } = await import('./js/config.js'); game.scene.getScene('Game').winGame();"
+```
+
+Write throwaway driver scripts and screenshots **outside the project directory** (e.g. `/tmp`) - the project auto-syncs to Gipity, so scratch files land in the user's storage. If they must live in the project, add the path to `.gipityignore`.
+
 ### Animations
 ```js
 this.anims.create({
@@ -205,19 +250,32 @@ import { MyScene } from './scenes/myScene.js';
 
 ## Mobile / Touch
 
-Phaser handles touch automatically for pointer events. For virtual controls:
+The template is mobile-ready by default via `js/controls.js` - a DOM overlay above the canvas that renders only on touch devices (nothing shows on desktop). It gives the standard mobile-game layout: a **floating virtual joystick** on the left half (the pad appears wherever the thumb lands), **round action buttons** bottom-right, and a **fullscreen toggle** top-right (auto-hidden where the Fullscreen API is unavailable, e.g. iPhone Safari - there, "Add to Home Screen" runs fullscreen via the template's PWA meta tags). Multi-touch is tracked per pointer, so joystick + buttons work simultaneously.
+
 ```js
-// On-screen buttons
-const jumpBtn = this.add.rectangle(700, 500, 80, 80, 0x333333, 0.5).setInteractive();
-jumpBtn.on('pointerdown', () => { body.setVelocityY(jumpForce); });
+import { touch, initTouchControls } from '../controls.js';
+
+// create(): declare the buttons your game needs (first = primary, biggest)
+initTouchControls({ buttons: [{ id: 'jump', label: 'Jump' }, { id: 'fire', label: 'Fire' }] });
+// tap-only game? disable the joystick so it doesn't swallow lower-left taps:
+// initTouchControls({ joystick: false, buttons: [...] });
+
+// update(): merge with keyboard - joystick is analog (-1..1)
+const keyX = (cursors.right.isDown ? 1 : 0) - (cursors.left.isDown ? 1 : 0);
+const moveX = keyX !== 0 ? keyX : touch.x;            // touch.y for vertical
+body.setVelocityX(moveX * speed);
+if (touch.isDown('jump')) { /* held */ }
+if (touch.justPressed('fire')) { /* once per press */ }
 ```
 
-For mobile-responsive canvas, the template uses `Phaser.Scale.FIT` + `CENTER_BOTH` by default.
+Always keep desktop AND touch input working: keyboard = WASD + arrows (both), plus the matching touch buttons. `touch.enabled` tells you touch controls are active (e.g. to swap instruction text). Phaser still handles in-canvas taps via pointer events (`this.input.on('pointerdown', ...)`), with 3 active pointers configured.
+
+For mobile-responsive canvas, the template uses `Phaser.Scale.FIT` + `CENTER_BOTH` by default - the game keeps its `settings.canvas` coordinate system and letterboxes to fit any screen or orientation. The page is hardened for games (no pinch-zoom, no overscroll, no text selection; `dvh` viewport).
 
 ## Deploy Verification
 
-Use the browser tool to verify deploys when it matters - first deploy, structural changes (new pages, new frameworks, changed imports), or when something might have broken. Skip verification for trivial changes (copy tweaks, style adjustments, config values).
+Verify a deploy when it matters - the first deploy, structural changes (new pages, new frameworks, changed imports), or anything that might have broken. Skip it for trivial changes (copy tweaks, style values).
 
-To verify: `browser action=open url=<deployed-url>` - waits for async modules, captures console errors automatically. Check output for `[Console errors captured after page load]`. Use `browser action=screenshot` to confirm visual correctness.
+`gipity deploy dev --inspect` deploys and reports the live page in one step: console errors, failed resources, timing, layout overflow. A clean console is necessary but NOT sufficient for Canvas/WebGL - also capture `gipity page screenshot <url>` and look at it, because render failures are silent. A blank page, black canvas, or wrong-looking UI with a clean console is a real failure, not a pass.
 
-**Debugging in production:** Add `console.error()` calls to app code for diagnostics, redeploy, then use `browser action=console` to read the output. Remove debug logging when done.
+Full loop - reading function logs, calling a function directly, driving the page: the `app-debugging` skill.

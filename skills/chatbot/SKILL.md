@@ -5,7 +5,7 @@ description: "Use when the user wants to add a configurable AI chatbot/assistant
 
 <!-- GENERATED from platform/docs/skills/chatbot.md by platform/scripts/sync-claude-plugin.ts - do not edit here. -->
 
-> **Gipity required.** This skill needs the `gipity` CLI linked to a project. If `gipity status` errors or shows no project, run the setup flow in the `gipity` skill (or `/gipity:setup`) first.
+> **Gipity required.** This skill needs the `gipity` CLI linked to a project. If `gipity status` errors or shows no project, run the setup flow in the `gipity` skill first (in Claude Code or Grok: `/gipity:setup`; in Codex or any other agent, follow the `gipity` skill's setup steps directly).
 >
 > This doc is shared across Gipity surfaces; where it names an agent tool, use the CLI equivalent: `add` → `gipity add <name>`, `file_write`/`file_read`/`file_delete` → edit files in the project directory directly (they auto-sync), `project_deploy` → `gipity deploy dev`, `code_execute` → `gipity sandbox run`. The live version of this doc: `gipity skill read chatbot`.
 
@@ -86,6 +86,8 @@ export default {
     primaryColor: null,                        // override the host's --primary
   },
 
+  // route: 'default' uses the project's default model. Set a tier alias
+  // (small | fast | medium | large | thinking) or a concrete model id to pin one.
   model: { route: 'default', temperature: 0.7, maxTokens: 1024 },
 };
 ```
