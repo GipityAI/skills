@@ -17,7 +17,7 @@ description: "Use when the user wants to build a 2D browser game - platformer, s
 
 ## Quick Start - Start Here
 
-**STRONGLY RECOMMENDED:** Begin every 2D game by adding the `2d-game` template with `add`. It sets up Phaser 3, boot/game scenes, config, settings, and favicons. Only hand-roll files if the user explicitly tells you to skip the template.
+**STRONGLY RECOMMENDED:** Begin every 2D game by adding the `2d-game` template with `add`. It sets up Phaser 3, boot/game scenes, config, settings, plus generated icons, a PWA manifest, and a social share card. Only hand-roll files if the user explicitly tells you to skip the template.
 
 ```
 add name=2d-game title="<Game Name>"
@@ -44,9 +44,9 @@ src/
       game.js           - Main game scene (gameplay logic)
   css/
     styles.css          - Page layout, canvas styling
-  images/
-    favicon-192.png
-    favicon.ico
+  images/               - generated app icons + share card (favicon-*.png/.ico,
+                          apple-touch-icon.png, og-image.png); customize with
+                          `gipity brand set --emoji <e>`, then redeploy
 ```
 
 ## Phaser Essentials

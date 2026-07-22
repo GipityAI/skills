@@ -101,23 +101,16 @@ When building apps or websites, follow these practices for professional-quality 
 
 ## Keep page metadata consistent
 
-The template ships a baseline social/SEO block in `<head>`: the `<title>`, an `og:title` (often `og:description`/`twitter:*` too), and an `application/ld+json` structured-data object whose `name` is set once at install. These three are *one unit*. When you change the page's visible title or H1 from the install default, update all three together so link previews and search results match what the page actually shows. Updating only the `<title>` leaves a stale structured-data/social name behind.
+Every template installs a full share/SEO head: `<title>`, meta description, canonical URL, the complete Open Graph + Twitter card set (including an absolute `og:image`), theme-color, favicon/apple-touch-icon/manifest links, and an `application/ld+json` structured-data object. The matching image assets (favicons, iOS Home Screen icon, PWA manifest, and a 1200x630 `src/images/og-image.png` share card) are generated at install from the app's title and description - so a link shared on X/iMessage/Slack shows a real card, and "Add to Home Screen" gets a real icon, with zero extra work.
 
-For example, if you retitle a page to a short label but leave the JSON-LD untouched:
+Two rules keep that polish intact:
 
-```html
-<title>914</title>
-<meta property="og:title" content="914">
-<script type="application/ld+json">{"@type":"WebSite","name":"my-project-install-slug"}</script>  <!-- stale -->
-```
+- **Pass a `description` when installing a template.** It feeds the meta description, the og/twitter descriptions, and the share card's tagline. Without one, those tags are omitted and the shared link looks bare.
+- **These tags are one unit.** When you change the page's visible title or H1 from the install default, update the `<title>`, the `og:title`/`twitter:title`, and the JSON-LD `name` together so link previews and search results match what the page actually shows. Updating only the `<title>` leaves a stale structured-data/social name behind. After a title/description change, refresh the generated images too: `gipity brand apply`.
 
-Bring the JSON-LD `name` (and any social tags) in line with the new title:
+**Custom app icon + share card:** `gipity brand set` re-renders every generated asset deterministically - e.g. `gipity brand set --emoji 🦍` (an emoji icon reads far more "this is my app" than the default letter), `--color "#3b82f6"` for the accent, `--tagline "..."` for the share-card subtitle. Then `gipity deploy dev` to publish. For fully custom art, overwrite `src/images/og-image.png` (1200x630) or the icon files directly (e.g. via `gipity generate image`) - `brand apply` regenerates them, so skip it after hand-replacing.
 
-```html
-<title>914</title>
-<meta property="og:title" content="914">
-<script type="application/ld+json">{"@type":"WebSite","name":"914"}</script>
-```
+**Older apps (installed before templates shipped this head):** their `index.html` has no og:image/twitter/apple-touch-icon/manifest tags, so regenerated assets alone won't show up in link previews. Run `gipity brand apply --fix-head` once: it regenerates the assets AND splices the current share/SEO head block into `src/index.html`, preserving the page's own title and description. Then deploy.
 
 ## Third-party libraries
 
