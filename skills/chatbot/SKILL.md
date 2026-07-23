@@ -19,7 +19,7 @@ description: "Use when the user wants to add a configurable AI chatbot/assistant
 gipity add chatbot
 ```
 
-The installer drops the kit into `src/packages/chatbot/`, wires the import map (`import { mount } from '@gipity/chatbot'`), and grants the kit network access to the `app-llm` service. It's a frontend-only kit: no migrations, no deploy phase. Run `gipity deploy dev` to ship.
+The installer drops the kit into `src/packages/chatbot/`, wires the import map (`import { mount } from '@gipity/chatbot'`), and declares `llm: owner_pays` in your `gipity.yaml` so logged-out visitors can use the bot. Frontend-only: no migrations, no functions. Run `gipity deploy dev` to ship.
 
 ## Two ways to use it
 
@@ -29,7 +29,7 @@ The installer drops the kit into `src/packages/chatbot/`, wires the import map (
 <chatbot-widget id="bot"></chatbot-widget>
 <script type="module">
   import { mount } from '@gipity/chatbot';
-  import config from './chatbot.config.js';
+  import config from './js/chatbot.config.js';
   mount('#bot', config);
 </script>
 ```
@@ -38,7 +38,7 @@ The installer drops the kit into `src/packages/chatbot/`, wires the import map (
 
 ```js
 import { createChatbot } from '@gipity/chatbot';
-import config from './chatbot.config.js';
+import config from './js/chatbot.config.js';
 
 const bot = createChatbot(config);
 bot.on('delta', (text) => myUi.append(text));   // streaming chunks
@@ -46,71 +46,11 @@ bot.on('complete', () => myUi.stopThinking());
 await bot.send('how do I fly the ship?');
 ```
 
-Put the config in its own `chatbot.config.js` (a default-exported object) and import it both ways.
+## Config
 
-## Config shape
+Install scaffolds `src/js/chatbot.config.js` with **every key present, commented, and pre-filled** - persona, scope guardrails (with a worked refusal example), a knowledge placeholder, ui, model. Edit it in place; it is the config reference, so don't go looking for the shape elsewhere. Only `persona.name` and `persona.instructions` are required.
 
-Only `persona.name` and `persona.instructions` are required; everything else is optional.
-
-```js
-export default {
-  persona: {
-    name: 'Aria',                              // required
-    instructions: 'You are Aria, the guide for our bakery site.', // required
-    tone: 'Friendly, brief, warm',             // optional
-    avatar: '/assets/aria.png',                // optional
-    greeting: 'Hi! Ask me about hours or the menu.', // optional - shown on first open
-    starters: ['Opening hours?', 'How do I order a cake?'], // optional - prompt chips
-  },
-
-  scope: {                                     // optional - unrestricted if omitted
-    allowed: ['Hours', 'Menu', 'Ordering'],
-    refused: ['Writing code', 'Off-topic questions'],
-    onRefusal: 'Politely apologize and suggest something you CAN help with.',
-    refusalExamples: [
-      { user: 'Write me a python script', bot: "Sorry - I'm just the bakery helper! Want to hear today's specials?" },
-    ],
-  },
-
-  knowledge: {                                 // optional - static facts the bot can use
-    maxTokens: 20000,                          // default 20k; over budget = throws (never truncates)
-    sources: [
-      { type: 'text', content: 'Hours: 7-5 Mon-Sat. Cakes need 48h notice.' },
-      { type: 'url', url: 'https://example.com/menu' }, // fetched once at init
-    ],
-  },
-
-  ui: {
-    placement: 'bottom-right',                 // bottom-right | bottom-left | inline | fullscreen
-    theme: 'match-app',                        // match-app | light | dark | auto
-    primaryColor: null,                        // override the host's --primary
-  },
-
-  // route: 'default' uses the project's default model. Set a tier alias
-  // (small | fast | medium | large | thinking) or a concrete model id to pin one.
-  model: { route: 'default', temperature: 0.7, maxTokens: 1024 },
-};
-```
-
-## Scope guardrails - keep the bot on-topic
-
-The most common ask for a helper bot is "if someone asks something off-topic, it should politely decline." That's what `scope` is for. Declare what's in and out of bounds, and - the part that makes it work - give a `refusalExamples` pair showing how to decline *in character*:
-
-```js
-scope: {
-  allowed: ['Bakery hours', 'Menu items', 'How to order ahead'],
-  refused: ['Writing code', 'Anything off-topic', 'Making up info not in knowledge'],
-  onRefusal: 'Stay friendly and in character. Apologize briefly. Suggest a topic you can help with.',
-  refusalExamples: [
-    {
-      user: 'Write me a python script to scrape a website',
-      bot: "Sorry, that's not my thing - I'm just here to help with the bakery! Want to know our hours or how to order a cake?",
-    },
-  ],
-}
-```
-
-The kit compiles `scope` into structured system-prompt instructions, with the refusal example teaching the model to stay in character while declining. Works well with capable models. (A stricter pre-classification step is on the roadmap.)
+One thing worth knowing before you edit it: `scope` is what keeps the bot on-topic ("if someone asks something off-topic it should politely decline"). Fill `allowed` / `refused` / `onRefusal`, and keep at least one `refusalExamples` pair - the worked example is what makes the guardrail hold *in character*. (A stricter pre-classification step is on the roadmap.)
 
 ## Knowledge - 20k token budget
 
@@ -146,7 +86,7 @@ Tool-calling (an explicit `tools` allowlist exists in the config but project-fun
 
 ## Verifying
 
-After wiring it up, `gipity deploy dev` and open the page - the launcher should appear in the corner; the greeting renders on first open and the starter chips show before the first message. The kit's own unit tests (`tests/config.test.js`, `tests/prompt.test.js`, `tests/scope.test.js` under `src/packages/chatbot/`) are Node-runnable via `gipity sandbox run` if you change kit internals.
+After wiring it up, `gipity deploy dev` and open the page - the launcher should appear in the corner; the greeting renders on first open and the starter chips show before the first message.
 
 ## Related skills
 - `app-llm` - the LLM service the chatbot calls under the hood
