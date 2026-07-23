@@ -191,6 +191,8 @@ features: { 'multiplayer': { room: 'my-arena' } }                    // default:
 features: { 'multiplayer': { room: 'lobby', sync: { worldState: true } } }  // host-authoritative world
 ```
 
+Solo is that one line and nothing else: **leave `gipity.yaml` as shipped.** Its `realtime` phase only registers a room name (no server, no cost, no plan limit) and an unconnected room does nothing, so there is no manifest to strip out.
+
 Use `sync.worldState` when every client must see the same blocks/objects in the same place - a shared sandbox or a destructible level. The feature creates a host-authoritative `world` entities channel; the 3D adapter (`js/network/adapter-3d.js`) already knows how to serialize and apply Parts, so there's no game-side registration. The first client to join becomes host (3-phase claim election); if the host drops, another takes over automatically (a client holding world data is promoted instantly, else alphabetical tiebreaker).
 
 The room is declared in the template's `gipity.yaml` (a `realtime` deploy phase), so `gipity deploy` provisions it - no separate step. To sync your own non-Part state, open an `entities` channel and supply an adapter - see `packages/realtime/contracts/adapter.contract.md` and the worked `examples/`. Room management and advanced config: the `app-realtime` skill.
