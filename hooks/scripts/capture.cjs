@@ -5,11 +5,12 @@
  *
  *   node capture.js <source> <event>
  *
- * Serves every harness that runs these hooks: Claude Code and Grok Build
- * load them via the Gipity plugin (Grok runs Claude-format plugin hooks
- * natively and sets GROK_HOOK_EVENT - we rewrite the source arg to 'grok'
- * there so the CLI picks the Grok transcript parser), and Codex via the
- * project's .codex/hooks.json (which passes source 'codex' explicitly).
+ * Serves every harness that runs these hooks: Claude Code and any tool that
+ * runs Claude-format plugin hooks natively (Grok Build today) load them via
+ * the Gipity plugin - those tools set their own env marker on every hook
+ * process, which SOURCE_REWRITES below maps to the right source arg so the
+ * CLI picks that agent's transcript parser - and Codex via the project's
+ * .codex/hooks.json (which passes source 'codex' explicitly).
  *
  * Captures BOTH launch paths:
  *   - `gipity build` - the CLI created the conversation up front and put
@@ -41,15 +42,27 @@ const { homedir } = require('os');
 
 if (process.env.GIPITY_CAPTURE === 'off') process.exit(0);
 
-// This same plugin also loads in Grok Build, which runs Claude-format plugin
-// hooks natively and sets GROK_HOOK_EVENT on every hook process. The hooks
-// file passes source 'claude-code' (it's the Claude plugin's), so rewrite it
-// to 'grok' here - the CLI's capture runner then uses the Grok transcript
-// parser and labels the conversation as a Grok session. The runner also
-// normalizes Grok's camelCase hook payload and derives the transcript path
-// from the session id, so nothing else changes on this side.
+// This same plugin loads natively in any tool that runs Claude-format plugin
+// hooks, not just Claude Code itself - Grok Build is the first example. Those
+// tools' hooks fire with source 'claude-code' (it's the Claude plugin's), so
+// they're told apart by an env var THEY set on every hook process, and the
+// source arg is rewritten accordingly before the CLI's capture runner sees
+// it - which then picks that agent's transcript parser and labels the
+// conversation correctly. Adding the next Claude-hook-compatible agent is one
+// entry here, nothing else on this side (the parser/normalization live in
+// the CLI). Order matters only if two entries could both match - none do today.
+const SOURCE_REWRITES = [
+  // Grok Build: runs Claude-format plugin hooks natively and sets
+  // GROK_HOOK_EVENT. The runner also normalizes Grok's camelCase hook
+  // payload and derives the transcript path from the session id.
+  { env: 'GROK_HOOK_EVENT', source: 'grok' },
+];
+
 const args = process.argv.slice(2);
-if (process.env.GROK_HOOK_EVENT && args[0] === 'claude-code') args[0] = 'grok';
+if (args[0] === 'claude-code') {
+  const rewrite = SOURCE_REWRITES.find((r) => process.env[r.env]);
+  if (rewrite) args[0] = rewrite.source;
+}
 
 // Find the project's .gipity.json by walking up from cwd - the session may
 // have been launched in a subdirectory of the project. Mirrors the CLI's
