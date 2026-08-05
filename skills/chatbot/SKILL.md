@@ -23,7 +23,7 @@ The installer drops the kit into `src/packages/chatbot/`, wires the import map (
 
 ## Two ways to use it
 
-**1) Bubble widget (default)** - a `<chatbot-widget>` custom element, floating launcher in the corner:
+**1) Bubble widget (default)** - a `<chatbot-widget>` custom element, floating launcher in the corner. The launcher shows a 💬 emoji by default; set `ui.launcherIcon` to an image URL to replace it. Assistant replies render minimal inline markdown (**bold**, *italic*, `code`, fenced blocks) with everything else HTML-escaped, so markdown in persona/knowledge answers displays properly:
 
 ```html
 <chatbot-widget id="bot"></chatbot-widget>
