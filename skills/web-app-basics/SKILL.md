@@ -168,6 +168,14 @@ Full loop - reading function logs, calling a function directly, driving the page
 
 Building a game? Don't hand-roll it - add the template and load its skill. **3D or multiplayer** (obby, tycoon, PvP, shooter): `3d-engine` for a blank slate, `3d-world` for a playable starter - Three.js + Rapier physics + Gipity Realtime, genre recipes in the skill. **2D** (platformer, scroller, arcade, puzzle, endless runner): `2d-game` - Phaser 3, no build step. Simple games with no engine need (wordle, quiz, cards) stay on `web-simple`.
 
+**Keyboard controls must ignore keys typed into form fields.** A game's global `keydown`/`keyup` listeners (WASD/arrows/Space) also fire while the player types into an `<input>` - a high-score name field, a chat box - and any `preventDefault()` there makes those letters impossible to type (the classic symptom: "I can't type W/A/S/D into the name field"). Start every global key handler with:
+
+```js
+if (e.target.closest('input, textarea, select') || e.target.isContentEditable) return;
+```
+
+and clear any held-key state when a field gains focus (`focusin`), so the player doesn't keep moving on a key whose release the game never saw. The game templates ship this guard; hand-rolled games on `web-simple`/`web-fullstack` must add it themselves. Test name-entry UI by typing the movement keys into it.
+
 ## Make it testable
 
 A few small rules turn a flaky click test into a reliable one:

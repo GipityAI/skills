@@ -235,6 +235,8 @@ functions:
 
 Touch controls are automatic - floating joystick, Jump/Action buttons, camera drag, fullscreen toggle (details in [3d-engine](https://docs.gipity.ai/skills/3d-engine.html)). To stay playable on both inputs, read movement from `player.inputState` and trigger actions from `inputState.action` / `inputState.jump` rather than raw key events.
 
+Typing into form fields (leaderboard name entry, chat) is already shielded: the template's key handlers ignore events targeting an `input`/`textarea`/`select`/contenteditable and clear held keys on focus, so W/A/S/D/Space type normally without moving the avatar. If you add your OWN global key listener, start it with `if (e.target.closest('input, textarea, select') || e.target.isContentEditable) return;`.
+
 - Use `assets.createVoxelGround()` for terrain - it's an InstancedMesh (one draw call for the whole ground)
 - For many identical objects, use `THREE.InstancedMesh` instead of individual meshes
 - Keep total triangle count under 100K for mobile
