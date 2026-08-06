@@ -156,7 +156,12 @@ export const GipityPlugin = async ({ client, directory }) => {
       // the user already configured under "gipity" wins field-by-field.
       const token = readStoredToken();
       const models = (await fetchModels()) ?? FALLBACK_MODELS;
-      const projectGuid = linkedProjectGuid(directory);
+      // Env wins over directory resolution (same rule as GIPITY_TOKEN): a
+      // harness/runner that knows the project (relay daemon, GipRunner, CI)
+      // can pin attribution even when opencode's session directory is not the
+      // linked dir - unattributed spend is invisible to per-project cost
+      // reporting and the bake-off (hit live 2026-08-06).
+      const projectGuid = process.env.GIPITY_PROJECT || linkedProjectGuid(directory);
       config.provider ??= {};
       const existing = config.provider.gipity ?? {};
       config.provider.gipity = {
