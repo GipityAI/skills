@@ -36,6 +36,10 @@ const GIPITY_DIR = process.env.GIPITY_DIR || join(homedir(), '.gipity');
 const TOKEN_FILE = join(GIPITY_DIR, 'opencode-token.json');
 const TRANSCRIPT_DIR = join(GIPITY_DIR, 'opencode', 'transcripts');
 const CAPTURE_RUNNER = join(GIPITY_DIR, 'agent-hooks', 'capture.cjs');
+/** Shared hook launcher: resolves a usable node (version managers included)
+ *  and execs the script with stdin forwarded. Required here because
+ *  process.execPath is the compiled opencode binary - see runCapture(). */
+const LAUNCHER = join(GIPITY_DIR, 'agent-hooks', 'launch.sh');
 
 const API_BASE = (process.env.GIPITY_API_BASE || 'https://a.gipity.ai').replace(/\/+$/, '');
 const SERVE_BASE = `${API_BASE}/llm/v1`;
@@ -132,13 +136,27 @@ export const GipityPlugin = async ({ client, directory }) => {
       cwd: directory,
       hook_event_name: 'Stop',
     });
-    const argv = [CAPTURE_RUNNER, 'opencode', 'stop'];
+    // Run through launch.sh, NOT process.execPath.
+    //
+    // opencode ships as a single-file COMPILED binary, so inside this plugin
+    // process.execPath is the `opencode` executable itself - not node, not
+    // bun. `spawn(process.execPath, [capture.cjs, ...])` therefore re-invoked
+    // opencode with our script path as its own argv: it printed its help
+    // banner, exited 0, and captured nothing. Silently, because we discard
+    // the child's output. That is why cloud devbox sessions mirrored no
+    // messages at all.
+    //
+    // launch.sh is the hardened resolver the Codex hooks already use: it
+    // finds a usable node across the common version managers, forwards
+    // stdin, and exits 0 when there is no node rather than erroring. Same
+    // entry point for every harness now.
+    const argv = [LAUNCHER, CAPTURE_RUNNER, 'opencode', 'stop'];
     if (sync) {
       // Shutdown path: the process may exit right after dispose() resolves,
       // so an async spawn would be killed mid-flush.
-      spawnSync(process.execPath, argv, { input: payload, timeout: 60000, stdio: ['pipe', 'ignore', 'ignore'] });
+      spawnSync('sh', argv, { input: payload, timeout: 60000, stdio: ['pipe', 'ignore', 'ignore'] });
     } else {
-      const child = spawn(process.execPath, argv, { stdio: ['pipe', 'ignore', 'ignore'], detached: false });
+      const child = spawn('sh', argv, { stdio: ['pipe', 'ignore', 'ignore'], detached: false });
       child.on('error', () => { /* capture is best-effort - never break the session */ });
       child.stdin.end(payload);
     }
