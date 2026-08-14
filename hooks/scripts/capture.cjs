@@ -35,7 +35,7 @@
  * `gipity` binary on PATH (npm global or a dev link) followed to its package.
  */
 'use strict';
-const { existsSync, readFileSync, realpathSync } = require('fs');
+const { existsSync, readFileSync, realpathSync, writeFileSync } = require('fs');
 const { spawnSync } = require('child_process');
 const { join, dirname, delimiter, resolve } = require('path');
 const { homedir } = require('os');
@@ -96,21 +96,56 @@ function findRunner() {
   );
   if (existsSync(local)) return local;
 
-  // Fallback: find the `gipity` binary on PATH, follow its symlink to the
-  // package root (<pkg>/dist/updater/shim.js), and use the bundled runner.
+  // Fallback: find the `gipity` binary on PATH and locate the bundled runner
+  // relative to whatever entry file it resolves to.
+  //
+  // Do NOT assume a fixed depth here. This used to hardcode one level up
+  // (`<entry>/../hooks/capture-runner.js`), which is right only when the bin
+  // resolves to <pkg>/dist/updater/shim.js - the published self-updating
+  // shim. The relay-host image deliberately repoints the bin at
+  // <pkg>/dist/index.js to bypass the updater (services/relay-host/
+  // Dockerfile), so `..` overshot to <pkg>/hooks, this returned null, and
+  // capture silently exited 0 in EVERY devbox - opencode/codex/grok sessions
+  // billed tokens and wrote files while the web CLI showed nothing but
+  // "finished" markers. Walking ancestors instead works for both layouts and
+  // for any future entry point.
   for (const dir of (process.env.PATH || '').split(delimiter)) {
     if (!dir) continue;
     try {
-      const real = realpathSync(join(dir, 'gipity'));
-      const candidate = resolve(dirname(real), '..', 'hooks', 'capture-runner.js');
-      if (existsSync(candidate)) return candidate;
+      let cursor = dirname(realpathSync(join(dir, 'gipity')));
+      for (;;) {
+        const candidate = join(cursor, 'hooks', 'capture-runner.js');
+        if (existsSync(candidate)) return candidate;
+        const parent = dirname(cursor);
+        if (parent === cursor) break;
+        cursor = parent;
+      }
     } catch { /* not in this dir */ }
   }
   return null;
 }
 
+/** Leave a breadcrumb for the silent-failure paths.
+ *
+ *  Capture must never break a session, so every gate here exits 0 - but the
+ *  two "we couldn't run at all" gates are indistinguishable from "captured
+ *  nothing" without this. Callers discard our stderr (the opencode plugin
+ *  spawns us with stdio ignore), so a file is the only channel that survives. */
+function breadcrumb(reason) {
+  try {
+    writeFileSync(
+      join(homedir(), '.gipity', 'agent-hooks', 'capture-last-error.log'),
+      `${new Date().toISOString()} ${reason}\n`,
+      { flag: 'a' },
+    );
+  } catch { /* best-effort by definition */ }
+}
+
 const runner = findRunner();
-if (!runner) process.exit(0);
+if (!runner) {
+  breadcrumb(`capture-runner.js not found (gipity CLI unreachable from PATH=${process.env.PATH || ''})`);
+  process.exit(0);
+}
 
 const res = spawnSync(process.execPath, [runner, ...args], {
   stdio: 'inherit',
