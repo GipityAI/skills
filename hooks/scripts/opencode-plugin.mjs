@@ -60,11 +60,20 @@ function readStoredToken() {
   return null;
 }
 
-async function fetchModels() {
+/** Fetch the live serving catalog. The token is REQUIRED: /models is behind
+ *  the normal Gipity bearer auth, and the list is per-account (a plan may cap
+ *  which models it can spend credits on), so an anonymous call 401s and
+ *  silently drops us to FALLBACK_MODELS - which is how this ran until
+ *  2026-08-13, meaning nobody ever saw the live list. */
+async function fetchModels(token) {
+  if (!token) return null;
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(`${SERVE_BASE}/models`, { signal: controller.signal });
+    const res = await fetch(`${SERVE_BASE}/models`, {
+      signal: controller.signal,
+      headers: { Authorization: `Bearer ${token}` },
+    });
     clearTimeout(timer);
     if (!res.ok) return null;
     const body = await res.json();
@@ -155,7 +164,7 @@ export const GipityPlugin = async ({ client, directory }) => {
       // serving path; models are billed via your Gipity credits). Anything
       // the user already configured under "gipity" wins field-by-field.
       const token = readStoredToken();
-      const models = (await fetchModels()) ?? FALLBACK_MODELS;
+      const models = (await fetchModels(token)) ?? FALLBACK_MODELS;
       // Env wins over directory resolution (same rule as GIPITY_TOKEN): a
       // harness/runner that knows the project (relay daemon, GipRunner, CI)
       // can pin attribution even when opencode's session directory is not the

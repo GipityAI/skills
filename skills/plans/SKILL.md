@@ -38,6 +38,7 @@ These are all real, enforced caps. On Free they bite; Pro lifts them. Show the u
 | Deploys/min | 5 | 10 |
 | Parallel test files | 2 | 4 |
 | Custom domains | 10 | 50 |
+| Coding models (cloud devbox) | cheap tier only | full open catalog |
 | Video generation | Pro only | unlimited |
 | Music generation | Pro only | unlimited |
 | Image generation | 3/mo free | unlimited |
