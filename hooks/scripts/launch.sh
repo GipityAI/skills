@@ -74,9 +74,10 @@ find_node() {
         [ -x "$cand" ] && { printf '%s\n' "$cand"; return 0; }
       done
     fi
-    newest=$(ls -1 "$nvm_dir/versions/node" 2>/dev/null | sort -V | tail -n 1)
-    [ -n "$newest" ] && [ -x "$nvm_dir/versions/node/$newest/bin/node" ] && {
-      printf '%s\n' "$nvm_dir/versions/node/$newest/bin/node"; return 0; }
+    # Use modification time instead of GNU-only `sort -V`, which macOS lacks.
+    newest_dir=$(ls -1dt "$nvm_dir"/versions/node/* 2>/dev/null | head -n 1)
+    [ -n "$newest_dir" ] && [ -x "$newest_dir/bin/node" ] && {
+      printf '%s\n' "$newest_dir/bin/node"; return 0; }
   fi
 
   # Common absolute fallbacks (Homebrew, n, system).
