@@ -13,6 +13,8 @@ description: "Use when the user wants realtime multiplayer, live presence, chat,
 
 Gipity apps get WebSocket-powered rooms for multiplayer games, chat, collaborative apps, and live dashboards. A room must be **provisioned** for the project before clients can connect - see "Provisioning a room" below.
 
+**Where it runs:** Gipity Realtime runs in one region, US West (Oregon). Every message makes a round trip through it, so players far from there see more latency: typically about 70 ms round trip from the US East Coast, about 150 ms from Western Europe, and 100-200 ms from East Asia and Australia, plus each player's own network. That is fine for party, turn-based, co-op and casual action games; for twitch-speed play overseas, measure with `rtt()` (or `gipity realtime bench`) before promising it.
+
 **Most apps should build on the `@gipity/realtime` kit** (`gipity add realtime`) rather than the raw Colyseus client - see "The realtime kit" below. The raw client is kept as a fallback in [app-realtime-reference](https://docs.gipity.ai/skills/app-realtime-reference.html) (`gipity skill read app-realtime-reference`).
 
 **The realtime build loop ends with a concurrent two-client check, not a page load.** Realtime work is only "done" after `gipity page test <url> --clients 2 --observe ...` shows the clients seeing each other (details in "Verifying presence/shared state across clients" below). A single `page inspect`/`page eval` cannot verify multiplayer, and two sequential evals are a false negative - plan the test-mode hooks for this while building, not after.
@@ -79,7 +81,7 @@ Every failed join **throws a `RealtimeJoinError`** with `err.code` `'not-found'`
 
 ### Screen + phone controllers (couch / party games)
 
-One page on a TV or laptop runs the game and hosts the table; phones scan a QR code and act as controllers. The host is a **role**, not a player: `party.host()` holds it, phones never do, and a reloaded TV page resumes the same table (same code, phones still seated) and takes the role back.
+One page on a TV or laptop runs the game and hosts the table; phones scan a QR code and act as controllers. The host is a **role**: `party.host()` holds it, phones never do, and a reloaded TV page resumes the same table (same code, phones still seated) and takes the role back. The TV page is still a client of the room, so it **uses one seat**: `seats` and the room's `max_clients` are players + 1 (8 phones = 9).
 
 ```js
 // TV page
@@ -102,8 +104,11 @@ leftBtn.onpointerup   = () => input.sendToHost('press', { key: 'left', down: fal
 ```
 
 - `table.room.hostId()` / `isHost()` / `onHostChange(cb)` expose the role; `rtt()` and `serverNow()` come from the kit's built-in clock sync.
-- `peerInfo(sid).clientId` is a random id kept in the phone's localStorage, so a phone that reloads (a new session id) can get its old seat back.
-- Set seat counts and holds on the `match` room in `gipity.yaml`: `max_clients: 9`, `seat_hold_seconds: 30` (a dropped phone keeps its seat), `host_hold_seconds: 60` (a dropped or reloading TV keeps the host role).
+- `peerInfo(sid).clientId` is a random id kept in the phone's localStorage, so a phone that reloads cleanly (a new session id) can be mapped back to its old game seat.
+- Set seat counts and holds on the `match` room in `gipity.yaml`: `max_clients: 9` (8 phones + the TV), `seat_hold_seconds: 30` (a dropped phone keeps its seat), `host_hold_seconds: 60` (a dropped or reloading TV keeps the host role).
+- **No host, no delivery:** `sendToHost()` while no host is connected (the TV hasn't joined yet, or is reloading) is dropped by the server, which tells the sender: the room fires `'undelivered'` `{ channel, type, to: 'host', reason: 'no-host' }`. `table.room.hostId()` is `null` until a host is there and `onHostChange(cb)` fires when it arrives, so a controller that must not lose input can buffer until then. Delivered messages carry no acknowledgement.
+
+**Rejoining a full table.** When the table fills, its listing flips to `'playing'` and joiners get `'full'`; when a seat frees (a phone left, or a dropped phone's seat hold ran out) it flips back to `'open'` by itself, so a phone that reloads can rejoin from the same invite link or code. If the app sets `status` itself with `table.setListing({ status: 'playing' })` (e.g. to keep a running match closed), the kit stops reopening it. A phone whose page **crashed** (no clean leave) still has its seat held for `seat_hold_seconds`: opening the invite link again from the same browser takes that held seat back with its old session id, even though the table is full. Any other device waits for the hold to run out.
 - Measure before you ship: `gipity realtime bench match --clients 8 --rate 20` reports controller-to-screen input age (p50/p95/p99), loss and ordering against the live server.
 
 **Multi-room primitives** (what party is built on) - one client, many rooms:
@@ -124,6 +129,8 @@ All four throw `RealtimeJoinError` on failure. `createDirectory(lobby)` turns th
 **Reading state right after a join** - `rt.joinById(...)` resolves on **join**, before the room's state has synced. `channel.get(key)` will return `undefined` until the first sync lands. If you need to read state immediately on join (e.g. a lobby joiner inspecting the host's match state), `await new Promise((r) => channel.onReady(r))` first. Otherwise rely on `channel.onChange` to drive your UI.
 
 **Reconnection is automatic** - an unclean drop is recovered via the reconnection token with the session id preserved (channels and seats survive a blip within the room's seat hold). Observe it with `rt.on('reconnecting')` / `'reconnected'` / `'lost'`. Messages sent while reconnecting are dropped, not queued. A realtime server restart (a platform deploy) ends every room: clients get `'lost'` and should re-join; room state is not persisted across it.
+
+**Reloads and crashes.** A page that closes or reloads normally leaves cleanly: its seat frees at once and the reloaded page joins as a new session. A page that dies without a clean leave (browser crash, OS-killed tab) keeps its seat for the hold, and the next join of that room from the same browser (`join`, `joinExisting`, `joinById`; never `create`) **resumes the held seat** with the old session id and host role instead of being refused as `'full'` by its own ghost. `rt.resume(name, { scope, roomId })` does only that. A host reclaims its role after a clean reload whichever way it joined (`join` with a `scope`, `joinExisting`, or `joinById`).
 
 Worked references ship inside the kit: `examples/` has one file per shape (chat, whiteboard, kanban, city-builder, agent-ops, desktop, lobby, connect-four) plus `README.md`. Room names still need provisioning - see below.
 

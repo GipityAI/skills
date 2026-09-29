@@ -104,8 +104,31 @@ Any client can use plain HTTPS against `https://a.gipity.ai/api/<appGuid>`:
 | `POST /auth/steam` | `{ ticket }`: the bytes from `GetAuthTicketForWebApi("gipity")`, hex-encoded. Add `"link": true` with a guest's Bearer token to link. | `{ data: { token, expiresIn, user } }` |
 | `POST /auth/guest` | `{ deviceSecret, displayName? }`: 32-256 random characters the client generates once and keeps | same |
 | `GET /auth/player` | Bearer token | `{ data: { guid, displayName, provider, providerUserId } }` |
-| `DELETE /auth/player` | Bearer token | deletes the player |
+| `PATCH /auth/player` | `{ displayName }` (1-40 characters, or `null`) with a guest's Bearer token | `{ data: { guid, displayName } }`. Steam players get 409: their name is their Steam persona |
+| `DELETE /auth/player` | Bearer token | `{ data: { deleted: true } }` after the app's cleanup ran (see below) |
 | `POST /fn/<name>` | Bearer token, JSON body | `{ data: <function return> }` |
+
+**Display names.** A guest's `displayName` (at sign-in or through `PATCH /auth/player`) is checked against a profanity and slur filter that sees through leetspeak, spacing and lookalike letters. A refused name is a 400 with `code: 'DISPLAY_NAME_REJECTED'` and a message to show; nothing is silently rewritten, so ask the player for another name. Steam persona names are used as Steam provides them (only control characters are dropped and the length is capped at 40).
+
+**Deleting a player.** `DELETE /auth/player` erases the player (for account-deletion requests). Your app's data about them is erased first: every function declared with `hooks: [user_deleted]` in `gipity.yaml` runs with `ctx.trigger = { type: 'user_deleted', userGuid }`, and the leaderboard kit ships one. If any of them fails, nothing is deleted and the call returns 502 `PLAYER_CLEANUP_FAILED`; retry it later. Keep your own per-player tables clean the same way:
+
+```yaml
+# gipity.yaml, under the functions phase
+function_definitions:
+  - name: forget-player
+    auth: member            # the platform calls it; players and visitors can't
+    hooks: [user_deleted]
+    tables: [race_results]
+```
+
+```js
+// functions/forget-player.js
+export default async function forgetPlayer(ctx, { db }) {
+  if (ctx.trigger?.type !== 'user_deleted') return { error: 'Runs when a player is deleted.' };
+  await db.query('DELETE FROM race_results WHERE user_guid = $1', [ctx.trigger.userGuid]);
+  return { ok: true };
+}
+```
 
 The ticket identity must be exactly `gipity`. Player tokens last 24 hours; there is no refresh token, so sign in again (a fresh Steam ticket, or the same device secret) when one expires or a call returns 401.
 
@@ -116,3 +139,4 @@ The ticket identity must be exactly `gipity`. Player tokens last 24 hours; there
 - **A ticket for the wrong identity.** Request it with `Steam.getAuthTicketForWebApi("gipity")`, not the no-argument session ticket.
 - **Not calling `Steam.run_callbacks()`.** The ticket never arrives, and sign-in times out after 10 seconds.
 - **Requiring the network to start the game.** Sign in in the background and let every online feature fail soft.
+- **Keeping per-player rows without a `user_deleted` hook.** A deleted player's rows (and their name on them) stay behind. Add a hook that deletes them, as above.
