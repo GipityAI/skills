@@ -42,15 +42,14 @@ Shared state held by the server. Auto-tracks players in a synced map, plus a gen
 **Good for:** games, collaborative editors, dashboards, turn-based games, anything needing shared state.
 
 ### Messages (both room types)
-- **The server stamps every relayed message** with `senderId` (the sender's session id) and `serverTs` (server receive time, ms). Client-supplied values for these are overwritten, so `senderId` is safe to trust for "who pressed this". The kit also sets `sentAt` (send time, in server-clock ms) on `messages`-channel sends once its clock is synced.
-- **Targeted sends:** `ch.send(type, data, { to: sessionId })`, `{ to: [id1, id2] }`, or `ch.sendToHost(type, data)`. Without `to`, a message goes to everyone else. Messages are delivered immediately (no batching), reliably, and in order per sender.
-- **Limits:** 10,000 characters per message or data value; 120 messages/s per client (bursts to 240; excess is dropped and a sustained flood is disconnected); 1,000 data keys and 2 MB of data per room.
+- **The server stamps every relayed message** with `senderId` and `serverTs` (client values are overwritten, so `senderId` is safe to trust); the kit adds `sentAt` in server-clock ms. Send to everyone else, or target `{ to: sid }`, `{ to: [sid1, sid2] }`, or `sendToHost`: delivery is immediate, reliable, and ordered per sender.
+- **Limits:** 10,000 characters per message or data value; 120 messages/s per client (bursts to 240; a sustained flood is disconnected); 1,000 data keys and 2 MB of data per room.
 
 ## The realtime kit (start here)
 
 For anything beyond a toy, do not hand-roll the Colyseus client - run `gipity add realtime` and build on the `@gipity/realtime` kit. It wraps everything in this doc (onStateChange diffing, tokens, reconnection, lobby + match rooms) behind a tested, engine-agnostic API. The raw Colyseus patterns - connecting by hand, room discovery over REST, relay/state message shapes, and the state-room boilerplate - are the fallback and a reference for what the kit does internally: read [app-realtime-reference](https://docs.gipity.ai/skills/app-realtime-reference.html).
 
-**The kit documents itself - `gipity skill read realtime` prints its README.** This skill covers *what to build*; the kit's own README is the *API reference* and is the right place to look up a method surface. In particular its "Rooms" section lists every room-handle method in one block - `connect` / `disconnect` / `isConnected` / `isSynced` / `peers` / `onPeerJoin` / `onPeerLeave` / `getRoomId` / `getSessionId` / `getLastError` / `channel` / `on` / `metrics` - along with the note that `onPeerLeave` already waits out the seat hold (30 s by default) on an unclean drop. Read the README and `examples/` instead of reverse-engineering `lib/`; both ship inside the app at `src/packages/realtime/`.
+**The kit documents itself - `gipity skill read realtime` prints its README.** This skill covers *what to build*; the kit's README is the *API reference* (its "Rooms" section lists every room-handle method in one block). Read the README and `examples/` instead of reverse-engineering `lib/`; both ship inside the app at `src/packages/realtime/`.
 
 **Channels** - one room, namespaced sub-streams. `rt.channel(name, { sync })` where `sync` is:
 - `messages` - pub/sub relay.
@@ -105,11 +104,26 @@ leftBtn.onpointerup   = () => input.sendToHost('press', { key: 'left', down: fal
 
 - `table.room.hostId()` / `isHost()` / `onHostChange(cb)` expose the role; `rtt()` and `serverNow()` come from the kit's built-in clock sync.
 - `peerInfo(sid).clientId` is a random id kept in the phone's localStorage, so a phone that reloads cleanly (a new session id) can be mapped back to its old game seat.
-- Set seat counts and holds on the `match` room in `gipity.yaml`: `max_clients: 9` (8 phones + the TV), `seat_hold_seconds: 30` (a dropped phone keeps its seat), `host_hold_seconds: 60` (a dropped or reloading TV keeps the host role).
+- Set seat counts and holds on the `match` room in `gipity.yaml`: `max_clients: 9` (8 phones + the TV), `seat_hold_seconds: 30` (a dropped phone keeps its seat), `host_hold_seconds: 60` (a dropped or reloading TV keeps the host role), and, for handoff (below), `host_grace_seconds: 5` and `host_handoff: true`.
 - **No host, no delivery:** `sendToHost()` while no host is connected (the TV hasn't joined yet, or is reloading) is dropped by the server, which tells the sender: the room fires `'undelivered'` `{ channel, type, to: 'host', reason: 'no-host' }`. `table.room.hostId()` is `null` until a host is there and `onHostChange(cb)` fires when it arrives, so a controller that must not lose input can buffer until then. Delivered messages carry no acknowledgement.
 
-**Rejoining a full table.** When the table fills, its listing flips to `'playing'` and joiners get `'full'`; when a seat frees (a phone left, or a dropped phone's seat hold ran out) it flips back to `'open'` by itself, so a phone that reloads can rejoin from the same invite link or code. If the app sets `status` itself with `table.setListing({ status: 'playing' })` (e.g. to keep a running match closed), the kit stops reopening it. A phone whose page **crashed** (no clean leave) still has its seat held for `seat_hold_seconds`: opening the invite link again from the same browser takes that held seat back with its old session id, even though the table is full. Any other device waits for the hold to run out.
+**Rejoining a full table** works from the same invite link or code once a seat frees; a phone whose page crashed takes its held seat back even when full (see the reference).
 - Measure before you ship: `gipity realtime bench match --clients 8 --rate 20` reports controller-to-screen input age (p50/p95/p99), loss and ordering against the live server.
+
+### Host handoff (when a phone hosts)
+
+A hosting phone stops running when its screen locks. With handoff, the host role moves to another player's page, which gets the old host's last checkpoint:
+
+```js
+const table = await party.host({ host: name, handoff: true });      // the host: phone or TV
+setInterval(() => table.setCheckpoint(referee.snapshot()), 500);    // <= 64 KB, last write wins
+const t = await party.joinFromUrl({ canHost: true });               // players who may take over
+t.onHostChange(({ isMe, reason, hostEpoch, checkpoint }) => {
+  if (isMe) referee = rebuild(checkpoint?.data);                     // only the new host gets it
+});
+```
+
+It moves when the host's connection, messages, or visible page are gone for `host_grace_seconds` (default 5). Each change bumps `hostEpoch`; `t.isHost()` is always current; a stale host's sends are dropped (`'undelivered'`, `'stale-host'`). Peers see page visibility: `peerInfo(sid).visible`, `onPeerVisibility`. Successors, `setSuccessors` / `transferHost`, in-flight messages: [app-realtime-reference](https://docs.gipity.ai/skills/app-realtime-reference.html).
 
 **Multi-room primitives** (what party is built on) - one client, many rooms:
 
@@ -128,9 +142,9 @@ All four throw `RealtimeJoinError` on failure. `createDirectory(lobby)` turns th
 
 **Reading state right after a join** - `rt.joinById(...)` resolves on **join**, before the room's state has synced. `channel.get(key)` will return `undefined` until the first sync lands. If you need to read state immediately on join (e.g. a lobby joiner inspecting the host's match state), `await new Promise((r) => channel.onReady(r))` first. Otherwise rely on `channel.onChange` to drive your UI.
 
-**Reconnection is automatic** - an unclean drop is recovered via the reconnection token with the session id preserved (channels and seats survive a blip within the room's seat hold). Observe it with `rt.on('reconnecting')` / `'reconnected'` / `'lost'`. Messages sent while reconnecting are dropped, not queued. A realtime server restart (a platform deploy) ends every room: clients get `'lost'` and should re-join; room state is not persisted across it.
+**Reconnection is automatic** - an unclean drop is recovered via the reconnection token with the session id preserved (channels and seats survive a blip within the room's seat hold). Observe it with `rt.on('reconnecting')` / `'reconnected'` / `'lost'`. A realtime server restart (a platform deploy) ends every room: clients get `'lost'` and should re-join; room state (checkpoints included) is not persisted across it.
 
-**Reloads and crashes.** A page that closes or reloads normally leaves cleanly: its seat frees at once and the reloaded page joins as a new session. A page that dies without a clean leave (browser crash, OS-killed tab) keeps its seat for the hold, and the next join of that room from the same browser (`join`, `joinExisting`, `joinById`; never `create`) **resumes the held seat** with the old session id and host role instead of being refused as `'full'` by its own ghost. `rt.resume(name, { scope, roomId })` does only that. A host reclaims its role after a clean reload whichever way it joined (`join` with a `scope`, `joinExisting`, or `joinById`).
+**Delivery guarantees during reconnect and handoff:** nothing is queued or replayed. A peer that is away misses broadcasts (a send targeted only at it comes back `'undelivered'`); after `'reconnected'` it gets new messages only, while the data map, player list, and current host resync. Messages that reached an old host are not redelivered to its successor. Full rules, reloads and crashes: [app-realtime-reference](https://docs.gipity.ai/skills/app-realtime-reference.html).
 
 Worked references ship inside the kit: `examples/` has one file per shape (chat, whiteboard, kanban, city-builder, agent-ops, desktop, lobby, connect-four) plus `README.md`. Room names still need provisioning - see below.
 
@@ -191,9 +205,9 @@ Plain `setLocal(obj)` needs **no adapter** - payloads are merged into peer recor
 
 ## Provisioning a room
 
-A room must exist before an app can connect - the server rejects unprovisioned room names. `gipity add realtime` already provisions three `state`/`public` rooms: one named after the project, plus `lobby` and `match` (what `createParty` uses), so kit apps usually need no extra step. Many *instances* of one provisioned room come free via `scope` - never provision per team/session/code. For additional names there are **three equivalent ways** - all create the same room record, so pick whichever fits the workflow:
+A room must exist before an app can connect - the server rejects unprovisioned room names. `gipity add realtime` already provisions three `state`/`public` rooms: one named after the project, plus `lobby` and `match` (what `createParty` uses), so kit apps usually need no extra step. Many *instances* of one provisioned room come free via `scope` - never provision per team/session/code. For additional names there are **two equivalent ways** - both create the same room record, so pick whichever fits the workflow:
 
-- **Declarative (best for deployed apps)** - declare it in `gipity.yaml` as a `realtime` deploy phase. `gipity deploy` reconciles it: creates it if missing, updates it when a setting changed, and leaves it alone otherwise - reproducible, no separate step. The `3d-world` / `3d-engine` templates already ship this. Optional per room: `max_clients` (1-200, default 50), `seat_hold_seconds` (0-300, default 30), `host_hold_seconds` (0-600, default 60).
+- **Declarative (best for deployed apps)** - declare it in `gipity.yaml` as a `realtime` deploy phase. `gipity deploy` reconciles it: creates it if missing, updates it when a setting changed, and leaves it alone otherwise - reproducible, no separate step. The `3d-world` / `3d-engine` templates already ship this. Optional per room: `max_clients` (1-200, default 50), `seat_hold_seconds` (0-300, default 30), `host_hold_seconds` (0-600, default 60), `host_handoff` (default false) and `host_grace_seconds` (1-60, default 5), see "Host handoff".
   ```yaml
   deploy:
     phases:
@@ -204,8 +218,7 @@ A room must exist before an app can connect - the server rejects unprovisioned r
             room_type: state
             auth_level: public
   ```
-- **CLI** - `gipity realtime room create game-lobby --type state --auth public [--max-clients N --seat-hold S --host-hold S]` (also `list`, `info`, `delete`). Deterministic and scriptable - good for CI.
-- **Agent tool** - `realtime_room action=create name=game-lobby room_type=state auth_level=public`. Use when working inside a chat turn.
+- **CLI** - `gipity realtime room create game-lobby --type state --auth public [--max-clients N --seat-hold S --host-hold S --host-handoff --host-grace S]` (also `list`, `info`, `delete`). Deterministic and scriptable - good for CI.
 
 
 ## Human/AI parity
@@ -257,15 +270,13 @@ Client 0 loads `?test-action=host` and client 1 `?test-action=join`, genuinely c
 No Puppeteer, no Chromium libs, no DOM driving - a passive `page test` (no `--observe`) just loads the URL, so the URL-param test mode is what makes the load alone exercise the join path. (When you'd rather drive the form than add a test mode, the interactive `page test --observe` above does the DOM driving for you.) Implement it once per multiplayer app and every realtime change is a 30-second smoke test from there on. Pair it with the `data-testid` / `data-screen` / `data-ready` conventions from `web-app-basics` for any leftover click-driven tests.
 
 ## Tips
-- The `@gipity/realtime` kit (`gipity add realtime`) covers party flows (invite links / codes / browse / quick-match), lobby + match rooms, a `store` channel for whole-object state, presence, scope partitioning, host election, and automatic reconnection - prefer it over hand-rolling any of the above
 - A multiplayer game needs a visible share affordance: show the invite link / code with a copy button on the "waiting for opponent" screen (that is when it's needed), not after the game starts
 - Split state into many small keys, not one big JSON blob (each key change re-syncs the entire value)
 - Changing a room in `gipity.yaml` and redeploying updates it; running instances apply new settings to their next joiner (within about 30 s)
 - Room instances have a max client limit (`gipity realtime room info <name>`). A full **unscoped** room shards: the next joiner gets a fresh instance. A full **scoped** room (a specific table or invite code) rejects further joins with `err.code === 'full'`, so a party is never split across two instances
-- Use relay rooms for simple message passing; use state rooms when you need synced shared state
 - Scope values and room ids are visible to anyone with the app's public token (the lobby lists them), so treat a room code as a convenience, not a secret
 - When editing connection code, read the entire connection function before making changes - partial edits that fix one issue while missing a related one waste a full deploy cycle
 
 ## Related
-- [app-realtime-reference](https://docs.gipity.ai/skills/app-realtime-reference.html) - the raw Colyseus client: connecting without the kit, room discovery over REST, relay + state room message patterns, turn-based games, and the safe state-room initialization boilerplate
+- [app-realtime-reference](https://docs.gipity.ai/skills/app-realtime-reference.html) - host handoff, reload, and delivery rules for the kit; the raw Colyseus client: connecting without the kit, room discovery over REST, relay + state room message patterns, turn-based games, and the safe state-room initialization boilerplate
 - [realtime-scheduled-app](https://docs.gipity.ai/skills/realtime-scheduled-app.html) - end-to-end recipe combining presence + messages with a database and a scheduled poster

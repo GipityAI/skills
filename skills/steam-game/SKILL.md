@@ -69,9 +69,9 @@ func save_result(result: Dictionary):
 	var r = await Gipity.call_function("race-result", result)   # r.data = the function's return value
 ```
 
-Every call returns `{ ok, data, error, status, offline }` and never throws. `offline` means the server couldn't be reached: the game must keep working without online features. Leaderboard submissions made offline are queued and sent after the next sign-in. The addon renews expired player tokens by signing in again.
+Every call returns `{ ok, data, error, code, status, offline }` and never throws. `code` is the server's error code (e.g. `DISPLAY_NAME_REJECTED`, `PLAYER_CLEANUP_FAILED`, `GAME_VERSION_TOO_OLD`), `""` when there is none; a refused leaderboard run keeps `ok: true` with `data.accepted: false` and its code in `code`. `offline` means the server couldn't be reached: the game must keep working without online features. Leaderboard submissions made offline are queued and sent after the next sign-in; a queued run the server then refuses is dropped and reported through the `queued_run_dropped(run, code, reason)` signal. Runs carry the game's `application/config/version` as `gameVersion`. The addon renews expired player tokens by signing in again.
 
-Other calls: `link_steam()` (attach Steam to the current guest, keeping their progress), `sign_out()`, `delete_player()` (account deletion requests), and the `Gipity.leaderboard` client (`submit`, `top`, `around_me`, `me`, `friends`, `friends_steam`, `ghost`, `boards`, `seasons`).
+Other calls: `link_steam()` (attach Steam to the current guest, keeping their progress), `sign_out()`, `rename_player(name)` (guests; `null` clears), `delete_player()` (account deletion requests; on `PLAYER_CLEANUP_FAILED` the session is kept so you can retry), and the `Gipity.leaderboard` client (`submit`, `top`, `around_me`, `me`, `friends`, `friends_steam`, `ghost`, `boards`, `seasons`).
 
 ## Players in your functions
 
