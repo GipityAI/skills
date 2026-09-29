@@ -1,6 +1,6 @@
 ---
 name: 2d-game
-description: "Use when the user wants to build a 2D browser game - platformer, side-scroller, arcade, puzzle, endless runner - and share it at a live URL. Phaser 3 starter on Gipity with scenes, physics, input, sprites, and genre recipes."
+description: "Use when the user wants to build a 2D browser game - platformer, side-scroller, arcade, puzzle, endless runner - and share it at a live URL. Phaser 3 app on Gipity with scenes, physics, input, sprites, and genre recipes."
 ---
 
 <!-- GENERATED from platform/docs/skills/2d-game.md by platform/scripts/sync-claude-plugin.ts - do not edit here. -->
@@ -13,7 +13,7 @@ description: "Use when the user wants to build a 2D browser game - platformer, s
 
 **2D Game** is the Phaser-based game template on Gipity. All files are fully editable - no locked template layer. Uses Phaser 3.80.1 via CDN with arcade physics.
 
-**When to use this:** When the user asks for a 2D game - platformer, side-scroller, arcade, puzzle, endless runner, top-down, shooter, or RPG. For simple games (wordle, quiz, card games), use `web-simple`. For 3D multiplayer apps, use `3d-engine` for a blank template or `3d-world` for a playable rocket-launcher starter.
+**When to use this:** When the user asks for a 2D game - platformer, side-scroller, arcade, puzzle, endless runner, top-down, shooter, or RPG. For simple games (wordle, quiz, card games), use `web-simple`. For 3D multiplayer apps, use `3d-engine` for a blank template or `3d-world` for a playable rocket-launcher app.
 
 ## Quick Start - Start Here
 
@@ -23,7 +23,7 @@ description: "Use when the user wants to build a 2D browser game - platformer, s
 add name=2d-game title="<Game Name>"
 ```
 
-**Starting over in an existing project:** If `src/` already exists and the user wants a clean rebuild, call `file_delete` on `src` first, then run `add` normally. Or pass `force=true` to `add` to overwrite in one step - destructive, so confirm with the user first. Unrelated content (media, data, notes) is preserved either way.
+**Starting over in an existing project:** If `src/` already exists and the user wants a clean rebuild, delete `src/` first, then run `gipity add` normally. Or pass `--force` to `gipity add` to overwrite in one step - destructive, so confirm with the user first. Unrelated content (media, data, notes) is preserved either way.
 
 **Naming:** Use the user's name verbatim if given. If they didn't specify, blend "Gip" or "Gipity" into the name (e.g. "Gipity Racer", "Gip Tac Toe") - be creative but don't force it.
 
@@ -134,7 +134,7 @@ These are the failure modes that most often turn the whole screen black. Read be
 
 For anything non-trivial, don't write the whole game in one `Write` call. Work in small, verified steps:
 
-1. Add the template (`gipity add 2d-game`) and deploy - confirm the starter game renders.
+1. Add the app (`gipity add 2d-game`) and deploy - confirm the game renders.
 2. Customize ONE element (e.g. replace the player rectangle with your sprite). Deploy, screenshot, confirm it renders.
 3. Add the next element (ground, enemies, collectibles) one at a time, deploying and verifying between each.
 4. Only after the core loop works, layer on polish (parallax, particles, HUD, touch controls).

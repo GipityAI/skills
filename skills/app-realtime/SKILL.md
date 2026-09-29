@@ -162,7 +162,7 @@ A room must exist before an app can connect - the server rejects unprovisioned r
             room_type: state
             auth_level: public
   ```
-- **CLI** - `gipity realtime room create game-lobby --type state --auth public` (also `list`, `info`, `delete`). Deterministic and scriptable - good for CI. The same command exists in the web CLI as `/realtime room ...`.
+- **CLI** - `gipity realtime room create game-lobby --type state --auth public` (also `list`, `info`, `delete`). Deterministic and scriptable - good for CI.
 - **Agent tool** - `realtime_room action=create name=game-lobby room_type=state auth_level=public`. Use when working inside a chat turn.
 
 

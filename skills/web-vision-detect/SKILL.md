@@ -19,7 +19,7 @@ This kit is the high-accuracy sibling of `web-vision-mediapipe`: use that one fo
 
 ## Two ways in
 
-**Start a fresh detection app** - add the `object-spotter` starter, a fullscreen camera app with the kit pre-installed that boxes, labels, and counts objects live, detects picked photos, and switches between three speed/accuracy presets:
+**Start a fresh detection app** - add the `object-spotter` app, a fullscreen camera app with the kit pre-installed that boxes, labels, and counts objects live, detects picked photos, and switches between three speed/accuracy presets:
 
 ```
 add name=object-spotter title="..."

@@ -25,7 +25,7 @@ If a human is present at a terminal, plain `gipity login` is simpler - see [gett
 
 ## 1. Mint a token (one time, needs an interactive session)
 
-From a machine where you're already logged in - your own CLI **or** the web CLI in the browser:
+From a machine where you're already logged in (or create one in Monitor's Account tab):
 
 ```bash
 gipity token create --name "Hermes on my VPS"        # name is a label you choose
@@ -69,7 +69,7 @@ gipity token list              # active tokens: name, created, expires, last-use
 gipity token revoke <id>       # e.g. gipity token revoke at_espgamjb - instant, irreversible
 ```
 
-Revocation takes effect immediately. The active token count also appears on the Plan tab in Monitor.
+Revocation takes effect immediately. Monitor's Account tab lists, creates and revokes tokens too.
 
 ## Security notes
 

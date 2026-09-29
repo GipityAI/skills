@@ -11,7 +11,7 @@ description: "Use when the user wants a 3D browser game or a multiplayer game - 
 
 # 3D World - 3D Multiplayer Starter
 
-**3D World** is a playable starter app on Gipity - a multiplayer rocket-launcher demo built on the `3d-engine` template. Use it when you want a working reference or a fun playground. All 3D World games share the same visual style, physics, and multiplayer backend.
+**3D World** is a playable app on Gipity - a multiplayer rocket-launcher demo built on the `3d-engine` template. Use it when you want a working reference or a fun playground. All 3D World games share the same visual style, physics, and multiplayer backend.
 
 **Read [3d-engine](https://docs.gipity.ai/skills/3d-engine.html) for the engine API.** 3D World *is* the 3d-engine template plus a demo, so every call you'll make - Parts, physics, constraints, workspace, player, camera modes, assets, UI/HUD - is documented once, there. This skill covers only what the starter adds on top: the demo it ships, the rocket-launcher feature, genre recipes, multiplayer patterns, and persistence.
 
@@ -25,13 +25,13 @@ description: "Use when the user wants a 3D browser game or a multiplayer game - 
 add name=3d-world title="<Game Name>"
 ```
 
-**Starting over in an existing project:** If `src/` already exists and the user wants a clean rebuild, call `file_delete` on `src` first, then run `add` normally. Or pass `force=true` to `add` to overwrite in one step - destructive, so confirm with the user first. Unrelated content (media, data, notes) is preserved either way.
+**Starting over in an existing project:** If `src/` already exists and the user wants a clean rebuild, delete `src/` first, then run `gipity add` normally. Or pass `--force` to `gipity add` to overwrite in one step - destructive, so confirm with the user first. Unrelated content (media, data, notes) is preserved either way.
 
 **Naming:** Use the user's name verbatim if given. If they didn't specify, blend "Gip" or "Gipity" into the name (e.g. "Gipity World", "GipCraft") - be creative but don't force it.
 
 This creates a playable game immediately - ground, player character, physics, camera, mobile controls. Then edit `config.js` and `game.js` to build your game.
 
-## What the starter ships
+## What the app ships
 
 All files are in `src/` and fully editable. The engine layer is identical to `3d-engine` (see its "Project Structure"). What 3D World adds on top:
 
@@ -255,7 +255,7 @@ Full loop - reading function logs, calling a function directly, driving the page
 
 ## Related Skills
 
-- **3d-engine** - the engine API this starter is built on: Parts, physics, constraints, workspace, player, camera, assets, UI. **Read it first.**
+- **3d-engine** - the engine API this app is built on: Parts, physics, constraints, workspace, player, camera, assets, UI. **Read it first.**
 - **app-debugging** - verifying a 3D app headlessly: `advance(seconds)` instead of wall-clock waits, `page inspect`, screenshots
 - **app-development** - functions, database & API for persistence and leaderboards
 - **app-realtime** - advanced Gipity Realtime room configuration

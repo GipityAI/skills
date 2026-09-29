@@ -19,11 +19,11 @@ When building apps or websites, follow these practices for professional-quality 
 
 **Naming:** Use the user's name verbatim if they gave one. If you need to invent a name, blend "Gip" or "Gipity" into it (e.g. "Gipity Notes", "GipPic", "Gip Tac Toe") - be creative but don't force it if it genuinely doesn't fit.
 
-**Starting over in an existing project:** If `src/` (or `functions/`, `migrations/` for fullstack/api) already exists and the user wants a clean rebuild, call `file_delete` on those directories first, then run `add` normally. Or pass `force=true` to `add` to overwrite in one step - destructive, so confirm with the user first. Non-template content (media, data, notes) is preserved either way.
+**Starting over in an existing project:** If `src/` (or `functions/`, `migrations/` for fullstack/api) already exists and the user wants a clean rebuild, delete those directories first, then run `gipity add` normally. Or pass `--force` to `gipity add` to overwrite in one step - destructive, so confirm with the user first. Non-template content (media, data, notes) is preserved either way.
 
 **Where things live (web-simple) - what to edit:** For a content or markup change, edit `src/index.html`. For visible display text (labels, button copy), edit `src/js/strings.js`. For styling, edit `src/css/styles.css`. `src/js/main.js` holds the app logic. The rest - `config.js`, `i18n.js`, `settings.js`, `translations.js` - is boilerplate you only open when enabling i18n or feature flags. Don't read every file before a simple edit; go straight to the one that owns the thing you're changing.
 
-**Templates install real files - Read one before you change it.** `add` writes a full set of starter files (HTML/CSS/JS, `gipity.yaml`, functions, and more), already on disk with placeholders (`{{TITLE}}`, …) substituted - so they are *not* new files. A blind `file_write` on one you haven't read fails with `"File has not been read yet"`, and editing from memory of the template misses the exact-string match (the title is already baked into `<h1>`, not `{{TITLE}}`) and loops. One `file_read` of the file you're about to change defuses both - just that file, not the whole tree.
+**Templates install real files - Read one before you change it.** `add` writes a full set of starter files (HTML/CSS/JS, `gipity.yaml`, functions, and more), already on disk with placeholders (`{{TITLE}}`, …) substituted - so they are *not* new files. Editing from memory of the template misses the exact-string match (the title is already baked into `<h1>`, not `{{TITLE}}`) and loops. One read of the file you're about to change defuses it - just that file, not the whole tree.
 
 **Multi-language (web-simple):** The template ships a dormant i18n system. Flip `config.features.i18n` to `true` in `src/js/config.js` to enable the language picker and `translations.js` lookup; the code in `src/js/strings.js`, `src/js/i18n.js`, and `src/js/main.js` is self-documenting - read those to see the `render()` + `i18n:changed` event pattern.
 
@@ -191,7 +191,7 @@ Load the ones that match what you're building - frontend recipes, game and 3D te
 - `web-ui-patterns` - default Gipity look (theme tokens) + copy-paste web UI recipes (feeds, copy-to-clipboard)
 - `2d-game` - 2D games with Phaser (platformer, scroller, arcade, puzzle, endless runner)
 - `3d-engine` - minimal 3D multiplayer template (Three.js + Rapier + Gipity Realtime, no gameplay)
-- `3d-world` - playable 3D multiplayer starter built on 3d-engine (obby, tycoon, simulator, PvP, shooter, etc.)
+- `3d-world` - playable 3D multiplayer app built on 3d-engine (obby, tycoon, simulator, PvP, shooter, etc.)
 - `app-development` - Functions, database & API
 - `app-debugging` - Debug a deployed app: page inspect/eval/screenshot, function logs
 - `app-llm` - AI/LLM service for your app

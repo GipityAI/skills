@@ -17,7 +17,7 @@ On-device: no server, no upload, the camera stream never leaves the device. Infe
 
 ## Two ways in
 
-**Start a fresh camera app** - add the `web-vision-cam` starter: a fullscreen camera app that already switches between gesture, object, and pose detection with a live FPS readout, kit pre-installed:
+**Start a fresh camera app** - add the `web-vision-cam` app: a fullscreen camera app that already switches between gesture, object, and pose detection with a live FPS readout, kit pre-installed:
 
 ```
 add name=web-vision-cam title="..."

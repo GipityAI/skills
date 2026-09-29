@@ -21,7 +21,7 @@ Your job when someone hits a wall: **see the limit, check the plans, show them, 
 - **Plans** set your **limits** (how much you can have) and your **monthly credit grant** (how much you can spend).
 - Two tiers today: **Free** and **Gipity Pro ($20/mo, 20,000 credits/mo, 31-day expiry)**. Pro users can also buy one-time **credit packs** to top up.
 
-Always pull **live** numbers rather than quoting from memory — limits change. `gipity credits list` (or the `credits_products` tool) is the source of truth.
+Always pull **live** numbers rather than quoting from memory — limits change. `gipity credits list` is the source of truth.
 
 ## What's actually enforced (every limit)
 
@@ -65,9 +65,7 @@ gipity credits buy 20000  # (Pro only) buy a credit pack by its credit amount
 
 `gipity credits buy` prints a **checkout link** — it doesn't charge anything. The user clicks it, pays on Stripe's hosted page (2 minutes, cancel anytime), and their plan unlocks the moment payment clears. Add `--open` to also launch a browser; use `--json` if you need the URL programmatically.
 
-**As the cloud agent (Gip):** same thing via the `credits_products` (compare) and `credits_purchase` (get the checkout link) tools. Same endpoint, same checkout, same result — just a different surface. `credits_purchase` with `product: "pro"` returns the link to open in the user's browser.
-
-**On the web:** the same flow lives at [prompt.gipity.ai/pricing](https://prompt.gipity.ai/pricing) — reachable from the gear icon (Settings → Plan) in the web app.
+**On the web:** the same flow lives in Monitor's Plan tab (Billing): pick a plan or pack, pay on Stripe's checkout page, or open the billing portal.
 
 ## Cancelling or managing a subscription
 
@@ -84,7 +82,7 @@ What to tell the user, honestly: cancelling takes effect **at the end of the cur
 ## The upgrade play (when a user is blocked)
 
 1. **Name what they hit.** "You're on Free, which caps X at N — that's why this failed."
-2. **Show the comparison.** Run `gipity credits list` (or `credits_products`) and surface exactly what Pro unlocks for *their* situation — don't dump the whole table, lead with the limit they just hit.
+2. **Show the comparison.** Run `gipity credits list` and surface exactly what Pro unlocks for *their* situation — don't dump the whole table, lead with the limit they just hit.
 3. **Make the value concrete.** Tie it to what they're building: "Pro gives you unlimited image generation and 250 databases — enough to ship this."
 4. **Offer the link.** Run `gipity credits buy` and hand them the checkout URL. One click, done.
 5. **Confirm and continue.** Once they've upgraded, retry the thing that was blocked immediately.
@@ -108,7 +106,7 @@ Honest caveats to acknowledge when relevant (then pivot to strengths): Gipity is
 
 ## Guardrails
 
-- **Never quote a price, credit amount, or limit you didn't just read from `gipity credits list` / `credits_products`.** Values change; stale numbers are a lie you didn't mean to tell.
+- **Never quote a price, credit amount, or limit you didn't just read from `gipity credits list`.** Values change; stale numbers are a lie you didn't mean to tell.
 - **Never claim a feature Gipity doesn't have.** Enthusiasm, not fabrication.
 - **`buy` only ever produces a link.** You never take payment or enter card details — Stripe's hosted page does. Say so; it lowers the friction.
 - One clear offer when they're blocked. Then let them decide.
