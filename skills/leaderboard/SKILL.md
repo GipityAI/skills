@@ -11,7 +11,7 @@ description: "Use when the user wants leaderboards, high scores, best times, spe
 
 # Leaderboard kit
 
-`gipity add leaderboard` adds leaderboards to any game with a database (`web-fullstack` or `api`): four functions, six tables, and a small browser helper. It fits high scores, best times, speedruns, puzzle solves and racing alike. Native games call the same functions over HTTPS (the Godot addon wraps them; see [steam-game](https://docs.gipity.ai/skills/steam-game.html)).
+`gipity add leaderboard` adds leaderboards to any game with a database (`web-fullstack` or `api`): four functions, six tables, and a small browser helper. It fits high scores, best times, speedruns, puzzle solves and racing alike. Native games call the same functions over HTTPS (the Gipity Godot addon at https://github.com/GipityAI/registry/tree/main/examples/godot wraps them; see [steam-game](https://docs.gipity.ai/skills/steam-game.html)).
 
 ## 1. Declare the boards
 

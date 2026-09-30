@@ -53,7 +53,7 @@ Only the developer can get these; ask them. Without them, Steam sign-in returns 
 
 ## Add the addon to the game
 
-1. Copy `addons/gipity/` from https://github.com/GipityAI/gipity-godot into the Godot project and enable **Gipity** under Project Settings > Plugins. That adds the `Gipity` autoload.
+1. Copy `examples/godot/addons/gipity/` from the Gipity registry (https://github.com/GipityAI/registry/tree/main/examples/godot) into the Godot project's `addons/` folder and enable **Gipity** under Project Settings > Plugins. That adds the `Gipity` autoload. To fetch just that folder: `git clone --depth 1 --filter=blob:none --sparse https://github.com/GipityAI/registry.git && git -C registry sparse-checkout set examples/godot`. The same folder has Gip Racer, a demo game with its backend, to copy from.
 2. Set **Project Settings > gipity/app_guid** to the project guid (`gipity project info`).
 3. For Steam: install GodotSteam, call `Steam.steamInitEx()` at startup, and `Steam.run_callbacks()` every frame.
 
