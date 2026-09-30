@@ -35,10 +35,11 @@ gipity init my-game            # link this folder to a new Gipity project
 gipity add api                 # functions + database (no web frontend)
 gipity add leaderboard         # optional: leaderboards with replays
 gipity project auth app        # players sign in to THIS game, no Gipity account needed
+gipity project auth --unique-names on   # optional: no two players share a display name
 gipity deploy dev
 ```
 
-`gipity project auth` modes: `gipity` (default: Sign in with Gipity only), `app` (Steam and guest players only), `both`. App sign-in is refused until the mode is `app` or `both`.
+`gipity project auth` modes: `gipity` (default: Sign in with Gipity only), `app` (Steam and guest players only), `both`. App sign-in is refused until the mode is `app` or `both`. `--unique-names on|off` sets whether display names must be unique in this game (see [Display names](#display-names)); it is off by default.
 
 ### Steam sign-in keys
 
@@ -71,11 +72,11 @@ func save_result(result: Dictionary):
 
 Every call returns `{ ok, data, error, code, status, offline }` and never throws. `code` is the server's error code (e.g. `DISPLAY_NAME_REJECTED`, `PLAYER_CLEANUP_FAILED`, `GAME_VERSION_TOO_OLD`), `""` when there is none; a refused leaderboard run keeps `ok: true` with `data.accepted: false` and its code in `code`. `offline` means the server couldn't be reached: the game must keep working without online features. Leaderboard submissions made offline are queued and sent after the next sign-in; a queued run the server then refuses is dropped and reported through the `queued_run_dropped(run, code, reason)` signal. Runs carry the game's `application/config/version` as `gameVersion`. The addon renews expired player tokens by signing in again.
 
-Other calls: `link_steam()` (attach Steam to the current guest, keeping their progress), `sign_out()`, `rename_player(name)` (guests; `null` clears), `delete_player()` (account deletion requests; on `PLAYER_CLEANUP_FAILED` the session is kept so you can retry), and the `Gipity.leaderboard` client (`submit`, `top`, `around_me`, `me`, `friends`, `friends_steam`, `ghost`, `boards`, `seasons`).
+Other calls: `link_steam()` (attach Steam to the current guest, keeping their progress), `sign_out()`, `rename_player(name)` (the player's name in this game, for guests and Steam players; `null` clears it), `check_name(name)` (is a name free, with suggestions; works before sign-in), `Gipity.player.nameConflict` (true when the game should ask the player to pick a name), `delete_player()` (account deletion requests; on `PLAYER_CLEANUP_FAILED` the session is kept so you can retry), and the `Gipity.leaderboard` client (`submit`, `top`, `around_me`, `me`, `friends`, `friends_steam`, `ghost`, `boards`, `seasons`).
 
 ## Players in your functions
 
-A signed-in player is an ordinary signed-in user to your functions: `auth: user` functions accept them, and `ctx.auth.userGuid` / `ctx.auth.displayName` are set (the Steam persona name). Key per-player rows on `ctx.auth.userGuid`, as in any app.
+A signed-in player is an ordinary signed-in user to your functions: `auth: user` functions accept them, and `ctx.auth.userGuid` / `ctx.auth.displayName` are set (`displayName` is the player's name in this game: a name they set, else their Steam persona). Key per-player rows on `ctx.auth.userGuid`, as in any app.
 
 `ctx.auth.identity` says how they signed in: `{ provider: 'steam', id: '<SteamID64>' }` or `{ provider: 'guest', id: '<hash>' }`, and `null` for Gipity users. Use the Steam id to match Steam friends to players.
 
@@ -104,13 +105,31 @@ Any client can use plain HTTPS against `https://a.gipity.ai/api/<appGuid>`:
 | `POST /auth/steam` | `{ ticket }`: the bytes from `GetAuthTicketForWebApi("gipity")`, hex-encoded. Add `"link": true` with a guest's Bearer token to link. | `{ data: { token, expiresIn, user } }` |
 | `POST /auth/guest` | `{ deviceSecret, displayName? }`: 32-256 random characters the client generates once and keeps | same |
 | `GET /auth/player` | Bearer token | `{ data: { guid, displayName, provider, providerUserId } }` |
-| `PATCH /auth/player` | `{ displayName }` (1-40 characters, or `null`) with a guest's Bearer token | `{ data: { guid, displayName } }`. Steam players get 409: their name is their Steam persona |
+| `PATCH /auth/player` | `{ displayName }` (1-40 characters, or `null` to clear) with a player's Bearer token | `{ data: { guid, displayName, nameConflict } }`. 409 `DISPLAY_NAME_TAKEN` when names are unique and it's taken |
+| `GET /auth/player/name-available?name=` | none, or a player's Bearer token (their own name counts as free). 30 checks a minute per IP | `{ data: { name, available, uniqueNames, suggestions } }`: up to 5 free names that pass the filter when taken |
 | `DELETE /auth/player` | Bearer token | `{ data: { deleted: true } }` after the app's cleanup ran (see below) |
 | `POST /fn/<name>` | Bearer token, JSON body | `{ data: <function return> }` |
 
-**Display names.** A guest's `displayName` (at sign-in or through `PATCH /auth/player`) is checked against a profanity and slur filter that sees through leetspeak, spacing and lookalike letters. A refused name is a 400 with `code: 'DISPLAY_NAME_REJECTED'` and a message to show; nothing is silently rewritten, so ask the player for another name. Steam persona names are used as Steam provides them (only control characters are dropped and the length is capped at 40).
+The sign-in `user` is `{ guid, displayName, avatarUrl, provider, providerUserId, isNew, nameConflict }`.
 
-**Deleting a player.** `DELETE /auth/player` erases the player (for account-deletion requests). Your app's data about them is erased first: every function declared with `hooks: [user_deleted]` in `gipity.yaml` runs with `ctx.trigger = { type: 'user_deleted', userGuid }`, and the leaderboard kit ships one. If any of them fails, nothing is deleted and the call returns 502 `PLAYER_CLEANUP_FAILED`; retry it later. Keep your own per-player tables clean the same way:
+The ticket identity must be exactly `gipity`. Player tokens last 24 hours; there is no refresh token, so sign in again (a fresh Steam ticket, or the same device secret) when one expires or a call returns 401.
+
+### Display names
+
+**The filter.** A name the player chooses (a guest's `displayName` at sign-in, or any `PATCH /auth/player`) is checked against a profanity and slur filter that sees through leetspeak, spacing and lookalike letters. A refused name is a 400 with `code: 'DISPLAY_NAME_REJECTED'` and a message to show; nothing is silently rewritten, so ask the player for another name. Steam persona names are used as Steam provides them (only control characters are dropped and the length is capped at 40).
+
+**Steam players' name in your game.** A Steam player is named after their Steam persona, refreshed on every sign-in. `PATCH /auth/player` gives them a name for this game instead: it wins over the persona on every later sign-in (a persona change on Steam doesn't touch it), and `{ displayName: null }` clears it, going back to their current persona. Linking Steam to a guest keeps a name the guest chose; a guest without one takes the persona. Functions see the effective name as `ctx.auth.displayName`, and the leaderboard kit stores it with each new personal best.
+
+**Unique names (opt-in).** `gipity project auth --unique-names on` makes display names unique among the game's players. Names are compared ignoring case, accents, spacing, invisible characters and lookalike letters (fullwidth, Cyrillic and Greek), so "Turbo", "TURBO", "Ｔｕｒｂｏ" and "Тurbо" are one name; leetspeak is not folded ("TURB0" is a different name). The database enforces it, so two players racing for the same name can't both get it. With it on:
+
+- A guest signing in with a taken name, or a `PATCH /auth/player` to one, is a 409 with `code: 'DISPLAY_NAME_TAKEN'` (no player is created). Check first with `GET /auth/player/name-available?name=...`, which answers before sign-in and offers free suggestions (`TURBO` taken: `TURBO27`, `TURBO418`, ...).
+- A Steam player whose persona is taken still signs in: they get `"<persona> #<last 4 digits of their SteamID>"` and `nameConflict: true`. Ask them to pick a name. Their next sign-in retries the plain persona.
+- Turning it on when players already share a name never fails: the earliest player keeps it, and the later ones keep theirs too but sign in with `nameConflict: true` until they rename. The CLI reports how many. Turning it off stops checking.
+- A deleted player's name is free again.
+
+### Deleting a player
+
+`DELETE /auth/player` erases the player (for account-deletion requests). Your app's data about them is erased first: every function declared with `hooks: [user_deleted]` in `gipity.yaml` runs with `ctx.trigger = { type: 'user_deleted', userGuid }`, and the leaderboard kit ships one. If any of them fails, nothing is deleted and the call returns 502 `PLAYER_CLEANUP_FAILED`; retry it later. Keep your own per-player tables clean the same way:
 
 ```yaml
 # gipity.yaml, under the functions phase
@@ -130,8 +149,6 @@ export default async function forgetPlayer(ctx, { db }) {
 }
 ```
 
-The ticket identity must be exactly `gipity`. Player tokens last 24 hours; there is no refresh token, so sign in again (a fresh Steam ticket, or the same device secret) when one expires or a call returns 401.
-
 ## Common mistakes
 
 - **Sending live positions through functions.** Use Steam Networking Sockets for the race itself. Functions are for outcomes.
@@ -139,4 +156,5 @@ The ticket identity must be exactly `gipity`. Player tokens last 24 hours; there
 - **A ticket for the wrong identity.** Request it with `Steam.getAuthTicketForWebApi("gipity")`, not the no-argument session ticket.
 - **Not calling `Steam.run_callbacks()`.** The ticket never arrives, and sign-in times out after 10 seconds.
 - **Requiring the network to start the game.** Sign in in the background and let every online feature fail soft.
+- **Treating `nameConflict` as a failed sign-in.** The player is signed in; show a rename prompt (`check_name` + `rename_player`) when it is true.
 - **Keeping per-player rows without a `user_deleted` hook.** A deleted player's rows (and their name on them) stay behind. Add a hook that deletes them, as above.

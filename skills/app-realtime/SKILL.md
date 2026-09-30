@@ -13,7 +13,7 @@ description: "Use when the user wants realtime multiplayer, live presence, chat,
 
 Gipity apps get WebSocket-powered rooms for multiplayer games, chat, collaborative apps, and live dashboards. A room must be **provisioned** for the project before clients can connect - see "Provisioning a room" below.
 
-**Where it runs:** Gipity Realtime runs in one region, US West (Oregon). Every message makes a round trip through it, so players far from there see more latency: typically about 70 ms round trip from the US East Coast, about 150 ms from Western Europe, and 100-200 ms from East Asia and Australia, plus each player's own network. That is fine for party, turn-based, co-op and casual action games; for twitch-speed play overseas, measure with `rtt()` (or `gipity realtime bench`) before promising it.
+**Where it runs:** one region, US West (Oregon), with no nearest-region routing: every client connects there, so players far away see more latency: typically about 70 ms round trip from the US East Coast, about 150 ms from Western Europe, and 100-200 ms from East Asia and Australia, plus each player's own network. That is fine for party, turn-based, co-op and casual action games; for twitch-speed play overseas, measure with `rtt()` (or `gipity realtime bench`) before promising it.
 
 **Most apps should build on the `@gipity/realtime` kit** (`gipity add realtime`) rather than the raw Colyseus client - see "The realtime kit" below. The raw client is kept as a fallback in [app-realtime-reference](https://docs.gipity.ai/skills/app-realtime-reference.html) (`gipity skill read app-realtime-reference`).
 
@@ -76,11 +76,13 @@ const joined = await party.joinFromUrl();
 //        / party.quickMatch({ host: name })
 ```
 
-Every failed join **throws a `RealtimeJoinError`** with `err.code` `'not-found'` | `'full'` | `'gone'` | `'auth'` | `'offline'` | `'failed'` - catch it and show the right message ("game is full", "invite expired") instead of a stuck "Joining…". Game state goes in a `store` channel on `table.channel('state', { sync: 'store' })`. `table.onPeerLeave` fires when a player is gone: immediately when they leave cleanly (closed or reloaded the tab), and after the seat hold (30 s by default) when their connection dropped and they didn't come back. A network blip within the hold never fires it. Worked file: `examples/party-game.js` in the kit.
+Every failed join **throws a `RealtimeJoinError`** with `err.code` `'not-found'` | `'full'` | `'gone'` | `'auth'` | `'offline'` | `'failed'` - catch it and show the right message ("game is full", "invite expired") instead of a stuck "Joining…". Game state goes in a `store` channel on `table.channel('state', { sync: 'store' })`. `table.onPeerLeave` fires at once on a clean leave (tab closed or reloaded), or after the seat hold (30 s default) for a dropped connection that didn't return; a blip within the hold never fires it. Worked file: `examples/party-game.js` in the kit.
+
+**Several players on one computer** (couch co-op): pass `{ seats: N }` (1-8) to `host` / `joinByCode` / `joinFromUrl` / `quickMatch`; `createParty`'s `seats` is the table total, enforced by the server (a 3-player join with 2 left throws `'full'`). Details: [app-realtime-reference](https://docs.gipity.ai/skills/app-realtime-reference.html).
 
 ### Screen + phone controllers (couch / party games)
 
-One page on a TV or laptop runs the game and hosts the table; phones scan a QR code and act as controllers. The host is a **role**: `party.host()` holds it, phones never do, and a reloaded TV page resumes the same table (same code, phones still seated) and takes the role back. The TV page is still a client of the room, so it **uses one seat**: `seats` and the room's `max_clients` are players + 1 (8 phones = 9).
+One page on a TV or laptop runs the game and hosts the table; phones scan a QR code and act as controllers. The host is a **role**: `party.host()` holds it, phones never do, and a reloaded TV page resumes the same table (same code, phones still seated) and takes the role back. The TV page **uses one seat** (none with `host({ seats: 0 })`) and one of the room's `max_clients` (8 phones = 9).
 
 ```js
 // TV page
@@ -140,7 +142,7 @@ All four throw `RealtimeJoinError` on failure. `createDirectory(lobby)` turns th
 
 **Scope - many spaces from one provisioned room.** `scope` is an opaque partition key: same `(room, scope)` → same instance, different scope → separate instance of the same provisioned room. Key it off a URL param so one app link serves many independent teams/sessions. **Never derive the room NAME from a URL** - unprovisioned room names are rejected by the server; derive the scope.
 
-**Reading state right after a join** - `rt.joinById(...)` resolves on **join**, before the room's state has synced. `channel.get(key)` will return `undefined` until the first sync lands. If you need to read state immediately on join (e.g. a lobby joiner inspecting the host's match state), `await new Promise((r) => channel.onReady(r))` first. Otherwise rely on `channel.onChange` to drive your UI.
+**Reading state right after a join** - joins resolve before the room's state has synced, so `channel.get(key)` is `undefined` until the first sync. To read state at once (e.g. a lobby joiner inspecting the host's match), `await new Promise((r) => channel.onReady(r))` first; otherwise drive the UI from `channel.onChange`.
 
 **Reconnection is automatic** - an unclean drop is recovered via the reconnection token with the session id preserved (channels and seats survive a blip within the room's seat hold). Observe it with `rt.on('reconnecting')` / `'reconnected'` / `'lost'`. A realtime server restart (a platform deploy) ends every room: clients get `'lost'` and should re-join; room state (checkpoints included) is not persisted across it.
 
