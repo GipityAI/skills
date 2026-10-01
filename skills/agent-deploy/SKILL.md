@@ -39,7 +39,7 @@ It prints the token **once** - copy it immediately, it can't be retrieved later:
 gip_at_eygYHKVRkBP8UXY5dfQzZV_xMH6t1x4Bynnhv4GD128
 ```
 
-Only a hash is stored server-side, so a lost token can't be recovered - only revoked and replaced. With `--json` the output is `{ "token": "gip_at_…", "shortGuid": "at_…", "expiresAt": "…"|null }`.
+Only a hash is stored server-side, so a lost token can't be recovered - only revoked and replaced. With `--json` the output is `{ "token": "gip_at_...", "short_guid": "at_...", "expires_at": "..."|null }`.
 
 ## 2. Use it: set GIPITY_TOKEN
 
@@ -85,10 +85,10 @@ Revocation takes effect immediately. Monitor's Account tab lists, creates and re
 |---|---|
 | Token format | `gip_at_` + random secret; shown once at creation |
 | Env var | `GIPITY_TOKEN` - read by the CLI on every command, ahead of any saved login |
-| Sent as | `Authorization: Bearer gip_at_…` to the Gipity API |
+| Sent as | `Authorization: Bearer gip_at_...` to the Gipity API |
 | Stored as | A one-way hash server-side - never the plaintext |
 | Lifetime | Never expires unless `--expires <days>` is set; revoke is instant |
-| Mint / list / revoke | `POST` / `GET` / `DELETE` `…/auth/agent-tokens` (via `gipity token …`) |
+| Mint / list / revoke | `POST` / `GET` / `DELETE` `.../auth/agent-tokens` (via `gipity token ...`) |
 
 ## Related skills
 

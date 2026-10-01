@@ -29,7 +29,7 @@ Gipity apps get WebSocket-powered rooms for multiplayer games, chat, collaborati
 | **Open lobby** | browse open games, quick-match strangers | `createParty()` → `onTables()` / `join(entry)` / `quickMatch()` |
 | **One screen, phone controllers** | couch/party games: a TV page hosts, phones scan a QR code and send inputs | `createParty()` → `host()` on the screen, `joinFromUrl()` on phones, `sendToHost()` (see "Screen + phone controllers") |
 
-Don't hand-roll a lobby, invite link, or room-code flow out of the primitives - `createParty` already owns those flows and their failure modes (cancelable hosting, typed join errors, one staleness window). Hand-rolled versions have repeatedly shipped ghost tables and UIs stuck on "Joining…".
+Don't hand-roll a lobby, invite link, or room-code flow out of the primitives - `createParty` already owns those flows and their failure modes (cancelable hosting, typed join errors, one staleness window). Hand-rolled versions have repeatedly shipped ghost tables and UIs stuck on "Joining...".
 
 ## Room Types
 
@@ -76,7 +76,7 @@ const joined = await party.joinFromUrl();
 //        / party.quickMatch({ host: name })
 ```
 
-Every failed join **throws a `RealtimeJoinError`** with `err.code` `'not-found'` | `'full'` | `'gone'` | `'auth'` | `'offline'` | `'failed'` - catch it and show the right message ("game is full", "invite expired") instead of a stuck "Joining…". Game state goes in a `store` channel on `table.channel('state', { sync: 'store' })`. `table.onPeerLeave` fires at once on a clean leave (tab closed or reloaded), or after the seat hold (30 s default) for a dropped connection that didn't return; a blip within the hold never fires it. Worked file: `examples/party-game.js` in the kit.
+Every failed join **throws a `RealtimeJoinError`** with `err.code` `'not-found'` | `'full'` | `'gone'` | `'auth'` | `'offline'` | `'failed'` - catch it and show the right message ("game is full", "invite expired") instead of a stuck "Joining...". Game state goes in a `store` channel on `table.channel('state', { sync: 'store' })`. `table.onPeerLeave` fires at once on a clean leave (tab closed or reloaded), or after the seat hold (30 s default) for a dropped connection that didn't return; a blip within the hold never fires it. Worked file: `examples/party-game.js` in the kit.
 
 **Several players on one computer** (couch co-op): pass `{ seats: N }` (1-8) to `host` / `joinByCode` / `joinFromUrl` / `quickMatch`; `createParty`'s `seats` is the table total, enforced by the server (a 3-player join with 2 left throws `'full'`). Details: [app-realtime-reference](https://docs.gipity.ai/skills/app-realtime-reference.html).
 
