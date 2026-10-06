@@ -20,13 +20,13 @@ On-device: no server, no upload, the camera stream never leaves the device. Infe
 **Start a fresh camera app** - add the `web-vision-cam` app: a fullscreen camera app that already switches between gesture, object, and pose detection with a live FPS readout, kit pre-installed:
 
 ```
-add name=web-vision-cam title="..."
+gipity add web-vision-cam --title "..."
 ```
 
 **Add vision to an existing web app** - install the kit into it:
 
 ```
-add name=web-vision-mediapipe
+gipity add web-vision-mediapipe
 ```
 
 This copies the kit to `src/packages/web-vision-mediapipe/` and wires the import map in `src/index.html` (the kit specifier plus `@mediapipe/tasks-vision`). There is no deploy phase - it is pure client-side, so a plain static app needs nothing else.
@@ -54,7 +54,7 @@ await vision.flipCamera();         // front <-> rear
 vision.stop();                     // release camera + free GPU memory
 ```
 
-`mountVision` runs the camera, the inference loop, and the overlay drawing. Also on the handle: `resetGesture()`, `detectFrom(source)`, `setCamera()`, `hasMultipleCameras()`, `currentTask()`, `currentFacingMode()`, `currentMirror()`.
+`mountVision` runs the camera, the inference loop, and the overlay drawing. Also on the handle: `latest()` (the newest frame's raw result), `resetGesture()`, `detectFrom(source)`, `setCamera()`, `hasMultipleCameras()`, `currentTask()`, `currentFacingMode()`, `currentMirror()`.
 
 For a custom loop, compose the low-level exports instead: `createTask`, `startCamera`, `createLoop`, `draw`, `fitCanvas`, `clearCanvas`. See `src/packages/web-vision-mediapipe/examples/` and its `README.md`.
 
@@ -92,14 +92,29 @@ Recognised gestures: `Thumb_Up`, `Thumb_Down`, `Open_Palm`, `Closed_Fist`, `Vict
 - **Gesture is the strong task.** Object detection uses EfficientDet-Lite - fast but modest accuracy. Good for a demo; do not promise production-grade detection. For high-accuracy detection, counting, or custom classes, use the `web-vision-detect` kit (YOLOX) instead.
 - **The canvas must overlay the video** at the same on-screen size. The kit sizes the canvas backing store to the camera frame; CSS `object-fit: cover` on *both* keeps the overlay aligned. A front camera reads naturally with `transform: scaleX(-1)` on both.
 - **Mount on page load, not behind a click.** The WASM runtime and the model start downloading the moment the module is imported, so that multi-MB fetch finishes while the user is still looking at the camera permission prompt. Keep an "Enable camera" button as the *retry* path for a browser that insists on a tap first - it simply rejects, and the gate stays up (this is what the `web-vision-cam` starter does). Gating the first mount behind a click throws away the overlap and blocks the headless check below. A secure origin is non-negotiable, though: `getUserMedia` fails on plain HTTP, so deploy over HTTPS.
-- **Verify it with a real camera - `--camera` plays a picture as the webcam.** The kit publishes its own state for exactly this: `<html data-vision="loading|ready|error|stopped">` and the live handle on `window.__vision`. So a headless check reads the deployed app's real camera → inference → gesture path with no webcam, no click, and no app-specific test hook:
+- **Verify it with a real camera - `--camera` plays a picture as the webcam.** The kit publishes its own state for exactly this: `<html data-vision="loading|ready|error|stopped">` and the live handle on `window.__vision`. So a headless check reads the deployed app's real camera → inference → gesture path with no webcam, no click, and no app-specific test hook - in one command:
 
 ```
-gipity page eval <url> --camera ./fist.jpg --wait-for '[data-vision="ready"]' --wait-timeout 20000 "window.__vision.gesture()"   # -> 'Closed_Fist'
-gipity page screenshot <url> --camera ./fist.jpg --wait-for '[data-vision="ready"]'                                              # see the round play out
+gipity page eval <url> --camera ./palm.png --wait-for '[data-vision="ready"]' --wait-timeout 25000 \
+  "(async()=>{ const v = window.__vision; const end = Date.now() + 3000; while (!v.gesture() && Date.now() < end) await new Promise(r => setTimeout(r, 100)); return { held: v.gesture(), hands: v.latest().gestures.length }; })()"
+# -> {"held":"Open_Palm","hands":1}
+gipity page screenshot <url> --camera ./palm.png --wait-for '[data-vision="ready"]'   # see the round play out
 ```
 
-  Wait on `[data-vision="ready"]` (first frame drawn) rather than guessing a fixed `--wait`. Give it room on a cold load - the model download lands on that first frame, and `page eval`'s `--wait-timeout` defaults to only 5s (max 30s; `page screenshot` already defaults to 15s). **A plain page load with no `--camera` lands on `data-vision="error"` - that is the app working, not a bug.** Don't add your own debug hooks on `window` to test this ([app-debugging](https://docs.gipity.ai/skills/app-debugging.html)) - `window.__vision` is the kit's own API surface, already there, and it's all you need. No hand photo around? `gipity generate image "photo of a closed fist, plain background"`. To ask whether the *model* sees a fist in a picture, with no camera and no app wiring in the way: `await vision.detectFrom('/fixtures/rock.png')`.
+  Wait on `[data-vision="ready"]` (first frame drawn) rather than guessing a fixed `--wait`, and give it room on a cold load (`--wait-timeout` defaults to 5s, max 30s). `gesture()` needs the pose held for 500ms, so it is still `null` on the first frame: the loop above polls for it. Read the answer off both fields: `hands: 0` means the model found no hand in the picture (**the picture is at fault** - swap it, don't wait longer or debug the app); `hands: 1` with `held: null` means it sees a hand but no pose it knows. **A plain page load with no `--camera` lands on `data-vision="error"` - that is the app working, not a bug.** Don't add your own debug hooks on `window` to test this ([app-debugging](https://docs.gipity.ai/skills/app-debugging.html)) - `window.__vision` is the kit's own API surface, already there.
+- **The fixture picture decides whether verification works - frame it like a webcam sees a person.** The hand model looks for a hand *on a person at webcam distance*. A studio close-up of a hand filling the frame on a plain background reads as **zero hands**, silently - real photo or generated. What works: a person with their upper body in frame, one hand raised beside the shoulder, palm toward the camera. `gipity generate image` makes usable fixtures when you ask for exactly that:
+
+```
+gipity generate image "candid smartphone photo of a person standing in a living room raising one open hand next to their shoulder, palm facing the camera, five fingers spread, upper body visible, natural daylight, realistic" -o tmp/palm.png
+```
+
+  Swap the pose phrase for the gesture you need: "making a peace sign, palm facing the camera" reads `Victory`, "giving a thumbs up" reads `Thumb_Up`. **`Closed_Fist` is the exception: generated fists usually come back as a hand with no gesture (`held: null`, `hands: 1`).** For a fist, use a real photo (ask the user for one), or verify the app's camera → gesture → UI path with the poses that do read and cover the fist branch with a unit test of your own mapping. Vet several candidates in one run before relying on them - `--fixture` hosts each file and `detectFrom` runs the model on it with no app wiring in the way:
+
+```
+gipity page eval <url> --camera tmp/palm.png --fixture tmp/palm.png --fixture tmp/peace.png --fixture tmp/thumb.png --wait-for '[data-vision="ready"]' --wait-timeout 25000 --timeout 60000 \
+  "(async()=>{ const out = {}; for (const [name, url] of Object.entries(fixtures)) { const r = await window.__vision.detectFrom(url); out[name] = r.gestures.map(g => g[0].categoryName); } return out; })()"
+# -> {"palm.png":["Open_Palm"],"peace.png":["Victory"],"thumb.png":["Thumb_Up"]}   ([] = no hand found, ["None"] = hand but no known pose)
+```
 - **One `detect()` per frame.** Timestamps must strictly increase; `mountVision`/`createLoop` already handle this. Do not call `task.detect()` twice for the same frame.
 - **First use downloads the model** (~3-8 MB) from Google's CDN, then it is browser-cached - expect a short delay on the first frame of each task.
 - **License:** MediaPipe and its default models are Apache-2.0 - free for commercial use, no copyleft obligation on the app.

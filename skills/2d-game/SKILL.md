@@ -20,7 +20,7 @@ description: "Use when the user wants to build a 2D browser game - platformer, s
 **STRONGLY RECOMMENDED:** Begin every 2D game by adding the `2d-game` template with `add`. It sets up Phaser 3, boot/game scenes, config, settings, plus generated icons, a PWA manifest, and a social share card. Only hand-roll files if the user explicitly tells you to skip the template.
 
 ```
-add name=2d-game title="<Game Name>"
+gipity add 2d-game --title "<Game Name>"
 ```
 
 **Starting over in an existing project:** If `src/` already exists and the user wants a clean rebuild, delete `src/` first, then run `gipity add` normally. Or pass `--force` to `gipity add` to overwrite in one step - destructive, so confirm with the user first. Unrelated content (media, data, notes) is preserved either way.

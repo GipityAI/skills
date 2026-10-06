@@ -22,13 +22,13 @@ This kit is the high-accuracy sibling of `web-vision-mediapipe`: use that one fo
 **Start a fresh detection app** - add the `object-spotter` app, a fullscreen camera app with the kit pre-installed that boxes, labels, and counts objects live, detects picked photos, and switches between three speed/accuracy presets:
 
 ```
-add name=object-spotter title="..."
+gipity add object-spotter --title "..."
 ```
 
 **Add detection to an existing web app** - install the kit into it:
 
 ```
-add name=web-vision-detect
+gipity add web-vision-detect
 ```
 
 This copies the kit to `src/packages/web-vision-detect/` and wires the import map in `src/index.html` (the kit specifier plus `onnxruntime-web`). There is no deploy phase - it is pure client-side, so a plain static app needs nothing else.
@@ -51,6 +51,7 @@ const vision = await mountDetect({
 
 await vision.switchModel('s');     // trade frame rate for accuracy
 const r = await vision.detect(img); // one-off detection on an <img> or canvas
+vision.counts();                    // { person: 3, bus: 1 } in the newest live frame
 vision.stop();                      // release camera + free model memory
 ```
 
@@ -74,8 +75,16 @@ Presets are official YOLOX exports hosted on the Gipity CDN, fetched on first us
 
 - **Pick the right vision kit.** Gesture or body pose -> `web-vision-mediapipe`. Detection accuracy, counting, or custom classes -> this kit. The MediaPipe kit's EfficientDet-Lite detector is demo-grade; this kit's `tiny`/`s` presets are meaningfully stronger.
 - **The canvas must overlay the video** at the same on-screen size. The kit sizes the canvas backing store to the camera frame; CSS `object-fit: cover` on *both* keeps the overlay aligned. A front camera reads naturally with `transform: scaleX(-1)` on the video only - pass `mirror` and the kit flips box geometry while captions stay upright.
-- **Camera needs a user gesture and a secure origin.** Call `mountDetect` from a click handler, not on page load, and deploy over HTTPS.
-- **Verify it with a real camera - `--camera` plays a picture as the webcam.** `gipity page eval <url> --camera ./street.jpg --wait 8000 "<read the counts the app rendered>"` (also on `page screenshot`/`inspect`) runs the app's actual camera → detection → `onResult` path against that image, so the labels and counts you assert are the app's own. Don't ship debug hooks on `window` to test this - see [app-debugging](https://docs.gipity.ai/skills/app-debugging.html).
+- **Mount on page load, not behind a click.** The model starts downloading alongside the camera permission prompt, so the first frame lands as soon as the stream does. Keep an "Enable camera" button as the *retry* path for a browser that insists on a tap first - it simply rejects, and the gate stays up (this is what the `object-spotter` app does). Gating the first mount behind a click blocks the headless check below. A secure origin is non-negotiable: `getUserMedia` fails on plain HTTP, so deploy over HTTPS.
+- **Verify it with a real camera in one command - `--camera` plays a picture as the webcam.** The kit publishes its own state for exactly this: `<html data-vision="loading|ready|error|stopped">` and the live handle on `window.__vision`, whose `counts()` is the per-label tally of the newest frame. So a headless check reads the deployed app's real camera → detection path with no webcam, no click, and no app-specific test hook:
+
+```
+gipity generate image "candid street photo of three people waiting next to a city bus, a dog on a leash, daylight, realistic" -o tmp/street.png
+gipity page eval <url> --camera tmp/street.png --wait-for '[data-vision="ready"]' --wait-timeout 25000 "window.__vision.counts()"
+# -> {"person":4,"dog":1,"bus":1}
+```
+
+  No photo on hand? `gipity generate image` of an ordinary scene with COCO-class objects (people, vehicles, animals, furniture, bottles, cups) works as the fixture; write it to `tmp/` so it never syncs or deploys. An empty `{}` means the model saw nothing in that picture - swap the picture, don't raise the wait. To assert what the app *rendered* from those detections, read its own DOM in the same eval. **A plain page load with no `--camera` lands on `data-vision="error"` - that is the app working, not a bug.** Don't ship your own debug hooks on `window` to test this - see [app-debugging](https://docs.gipity.ai/skills/app-debugging.html).
 - **Verify the picked-photo / upload path with `--fixture` - it hosts a real image and injects a fetchable `fixtureUrl`.** A file-upload detector can't be driven through its `<input type=file>` from an eval (browsers block setting a file input), and you should never deploy a throwaway image into the app to test it. Instead host a real image and run the kit's own detect path over it - `--fixture` uploads the file, hands your eval a CORS-permissive `fixtureUrl`, then deletes the hosted copy afterward:
 ```bash
 gipity page eval <url> --fixture ./street.jpg \

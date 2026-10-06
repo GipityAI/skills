@@ -22,7 +22,7 @@ description: "Use when the user wants a 3D browser game or a multiplayer game - 
 **STRONGLY RECOMMENDED:** Begin every 3D World game by adding the `3d-world` template with `add`. It sets up Three.js, Rapier physics, Gipity Realtime multiplayer, player controls, and the full engine layer for you. Only hand-roll files if the user explicitly tells you to skip the template.
 
 ```
-add name=3d-world title="<Game Name>"
+gipity add 3d-world --title "<Game Name>"
 ```
 
 **Starting over in an existing project:** If `src/` already exists and the user wants a clean rebuild, delete `src/` first, then run `gipity add` normally. Or pass `--force` to `gipity add` to overwrite in one step - destructive, so confirm with the user first. Unrelated content (media, data, notes) is preserved either way.
