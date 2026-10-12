@@ -13,7 +13,7 @@ description: "Use when the user wants an app that sees through the camera - gest
 
 `web-vision-mediapipe` is a **kit** - a reusable building block added into an existing web app. It wraps Google [MediaPipe Tasks](https://ai.google.dev/edge/mediapipe) so an app can read the camera and run **gesture recognition**, **body pose**, or **object detection** entirely in the browser.
 
-On-device: no server, no upload, the camera stream never leaves the device. Inference is WASM + WebGL-accelerated. **Web only** - it needs `getUserMedia`, WASM, and a canvas, so it runs only on HTTPS or `localhost`.
+On-device: no server, no upload, the camera stream never leaves the device. MediaPipe's own usage metrics (which its npm build sends to Google) are answered locally by the kit, so nothing else leaves either. Inference is WASM + WebGL-accelerated. **Web only** - it needs `getUserMedia`, WASM, and a canvas, so it runs only on HTTPS or `localhost`.
 
 ## Two ways in
 
