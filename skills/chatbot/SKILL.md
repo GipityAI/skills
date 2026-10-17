@@ -7,7 +7,7 @@ description: "Use when the user wants to add a configurable AI chatbot/assistant
 
 > **Gipity required.** This skill needs the `gipity` CLI linked to a project. If `gipity status` errors or shows no project, run the setup flow in the `gipity` skill first (in Claude Code or Grok: `/gipity:setup`; in Codex or any other agent, follow the `gipity` skill's setup steps directly).
 >
-> This doc is shared across Gipity surfaces; where it names an agent tool, use the CLI equivalent: `add` → `gipity add <name>`, `file_write`/`file_read`/`file_delete` → edit files in the project directory directly (they auto-sync), `project_deploy` → `gipity deploy dev`, `code_execute` → `gipity sandbox run`. The live version of this doc: `gipity skill read chatbot`.
+> This doc is shared across Gipity surfaces; where it names an agent tool, use the CLI equivalent: `add` → `gipity add <name>`, `file_write`/`file_read`/`file_delete` → edit files in the project directory directly (they auto-sync), `project_deploy` → `gipity deploy` (or `gipity deploy <env>` for an environment), `code_execute` → `gipity sandbox run`. The live version of this doc: `gipity skill read chatbot`.
 
 # Chatbot kit
 
@@ -19,7 +19,7 @@ description: "Use when the user wants to add a configurable AI chatbot/assistant
 gipity add chatbot
 ```
 
-The installer drops the kit into `src/packages/chatbot/`, wires the import map (`import { mount } from '@gipity/chatbot'`), and declares `llm: owner_pays` in your `gipity.yaml` so logged-out visitors can use the bot. Frontend-only: no migrations, no functions. Run `gipity deploy dev` to ship.
+The installer drops the kit into `src/packages/chatbot/`, wires the import map (`import { mount } from '@gipity/chatbot'`), and declares `llm: owner_pays` in your `gipity.yaml` so logged-out visitors can use the bot. Frontend-only: no migrations, no functions. Run `gipity deploy` to ship.
 
 ## Two ways to use it
 
@@ -86,7 +86,7 @@ Tool-calling (an explicit `tools` allowlist exists in the config but project-fun
 
 ## Verifying
 
-After wiring it up, `gipity deploy dev` and open the page - the launcher should appear in the corner; the greeting renders on first open and the starter chips show before the first message.
+After wiring it up, `gipity deploy` and open the page - the launcher should appear in the corner; the greeting renders on first open and the starter chips show before the first message.
 
 ## Related skills
 - `app-llm` - the LLM service the chatbot calls under the hood

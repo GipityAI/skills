@@ -7,7 +7,7 @@ description: "Use when an AI agent, script, or CI job needs to deploy to or oper
 
 > **Gipity required.** This skill needs the `gipity` CLI linked to a project. If `gipity status` errors or shows no project, run the setup flow in the `gipity` skill first (in Claude Code or Grok: `/gipity:setup`; in Codex or any other agent, follow the `gipity` skill's setup steps directly).
 >
-> This doc is shared across Gipity surfaces; where it names an agent tool, use the CLI equivalent: `add` → `gipity add <name>`, `file_write`/`file_read`/`file_delete` → edit files in the project directory directly (they auto-sync), `project_deploy` → `gipity deploy dev`, `code_execute` → `gipity sandbox run`. The live version of this doc: `gipity skill read agent-deploy`.
+> This doc is shared across Gipity surfaces; where it names an agent tool, use the CLI equivalent: `add` → `gipity add <name>`, `file_write`/`file_read`/`file_delete` → edit files in the project directory directly (they auto-sync), `project_deploy` → `gipity deploy` (or `gipity deploy <env>` for an environment), `code_execute` → `gipity sandbox run`. The live version of this doc: `gipity skill read agent-deploy`.
 
 # Headless Deploy with Agent API Tokens
 
@@ -54,13 +54,13 @@ That's the whole auth step. `GIPITY_TOKEN` takes precedence over any saved sessi
 ```bash
 gipity status                       # confirms authenticated, no login prompt
 gipity init                         # link the cwd as a project (or `gipity add <template>` in an empty dir)
-gipity deploy dev                   # → https://dev.gipity.ai/<account>/<project>/
+gipity deploy                       # a new app: prod → https://app.gipity.ai/<account>/<project>/
 gipity page inspect <url>           # headless verify: console errors, failed resources
 ```
 
-The full build loop - `gipity add` → edit files → `gipity deploy dev` → `gipity page inspect` → fix → repeat (see [deploy](https://docs.gipity.ai/skills/deploy.html)) - runs with no interactive step anywhere.
+The full build loop - `gipity add` → edit files → `gipity deploy` → `gipity page inspect` → fix → repeat (see [deploy](https://docs.gipity.ai/skills/deploy.html)) - runs with no interactive step anywhere.
 
-> **Keep deploys on dev.** Never run `gipity deploy prod` unattended unless the job is explicitly a production release - `prod` publishes to the user's live URL.
+> **Don't change a live app's prod unattended.** A new app's first `gipity deploy` goes to prod, and that's fine: nobody uses it yet. On an app that already has users, deploy an environment (`gipity deploy dev`, created on first use, with its own database) and leave `gipity deploy prod` to a job that is explicitly a production release. Once an app has environments, a bare `gipity deploy` is refused until you name one, so a script can't reach prod by accident.
 
 ## 3. Manage and revoke
 

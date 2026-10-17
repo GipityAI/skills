@@ -7,7 +7,7 @@ description: "Use when the user wants to put a native game online - a Godot game
 
 > **Gipity required.** This skill needs the `gipity` CLI linked to a project. If `gipity status` errors or shows no project, run the setup flow in the `gipity` skill first (in Claude Code or Grok: `/gipity:setup`; in Codex or any other agent, follow the `gipity` skill's setup steps directly).
 >
-> This doc is shared across Gipity surfaces; where it names an agent tool, use the CLI equivalent: `add` → `gipity add <name>`, `file_write`/`file_read`/`file_delete` → edit files in the project directory directly (they auto-sync), `project_deploy` → `gipity deploy dev`, `code_execute` → `gipity sandbox run`. The live version of this doc: `gipity skill read steam-game`.
+> This doc is shared across Gipity surfaces; where it names an agent tool, use the CLI equivalent: `add` → `gipity add <name>`, `file_write`/`file_read`/`file_delete` → edit files in the project directory directly (they auto-sync), `project_deploy` → `gipity deploy` (or `gipity deploy <env>` for an environment), `code_execute` → `gipity sandbox run`. The live version of this doc: `gipity skill read steam-game`.
 
 # Steam and Godot games - online backend
 
@@ -36,7 +36,7 @@ gipity add api                 # functions + database (no web frontend)
 gipity add leaderboard         # optional: leaderboards with replays
 gipity project auth app        # players sign in to THIS game, no Gipity account needed
 gipity project auth --unique-names on   # optional: no two players share a display name
-gipity deploy dev
+gipity deploy
 ```
 
 `gipity project auth` modes: `gipity` (default: Sign in with Gipity only), `app` (Steam and guest players only), `both`. App sign-in is refused until the mode is `app` or `both`. `--unique-names on|off` sets whether display names must be unique in this game (see [Display names](#display-names)); it is off by default.

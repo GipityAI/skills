@@ -5,7 +5,7 @@ description: Use when the user mentions Gipity, or when they want to put somethi
 
 # Gipity
 
-Gipity is a full-stack cloud platform tuned for AI agents: hosting, Postgres databases, serverless functions, auth, file storage, realtime, scheduled jobs, and first-party AI services (LLM, image, speech, transcription) - driven end-to-end by the `gipity` CLI. You write files locally; they sync to the cloud automatically; `gipity deploy dev` puts them on a live URL. No infra setup, no API keys to provision, no local runtime needed.
+Gipity is a full-stack cloud platform tuned for AI agents: hosting, Postgres databases, serverless functions, auth, file storage, realtime, scheduled jobs, and first-party AI services (LLM, image, speech, transcription) - driven end-to-end by the `gipity` CLI. You write files locally; they sync to the cloud automatically; `gipity deploy` puts them on a live URL. No infra setup, no API keys to provision, no local runtime needed.
 
 There is no Gipity SDK to install into the app and no REST API to call from this session - **the CLI is the entire interface**. Every command supports `--json` for programmatic use.
 
@@ -47,14 +47,15 @@ gipity add 3d-world        # Three.js + physics + multiplayer starter
 Then iterate:
 
 ```
-edit files  →  gipity deploy dev  →  gipity page inspect <url>  →  fix errors  →  repeat
+edit files  →  gipity deploy  →  gipity page inspect <url>  →  fix errors  →  repeat
 ```
 
-- `gipity deploy dev` puts the app at `https://dev.gipity.ai/<account>/<project>/` and prints the URL. Deploys are phased (files, database migrations, functions) with checksums, so re-deploys only push what changed.
+- `gipity deploy` puts a new app at `https://app.gipity.ai/<account>/<project>/` (prod) and prints the URL. Deploys are phased (files, database migrations, functions) with checksums, so re-deploys only push what changed.
+- Apps can have isolated **environments**: `gipity deploy dev` creates `dev` on first use, with its own database and functions, at `https://dev.gipity.ai/<account>/<project>/`. Once an app has one, a bare `gipity deploy` is refused: name `dev` or `prod`. Other commands take `--env <name>`.
 - `gipity page inspect <url>` loads the deployed page headlessly and reports console errors, failed resources, and performance - use it to verify instead of asking the user to check.
 - Kits (`gipity add realtime`, etc.) drop reusable building blocks into an existing app.
 
-**Always deploy to dev. Never run `gipity deploy prod` unless the user explicitly says "prod"** - prod is the user's production URL.
+**Don't change a live app's prod on your own.** A new app's first `gipity deploy` goes to prod, which is fine. When the app already has users, deploy `dev` and run `gipity deploy prod` only when the user says so.
 
 ## Rules of the road in a Gipity project
 
@@ -71,7 +72,7 @@ edit files  →  gipity deploy dev  →  gipity page inspect <url>  →  fix err
 | `gipity status` | Auth, project, and sync state |
 | `gipity token create --name <n>` | Mint a `gip_at_…` token for headless/CI auth (then set `GIPITY_TOKEN`) |
 | `gipity add <template\|kit>` | Install an app template or building block |
-| `gipity deploy dev` | Deploy to a live dev URL |
+| `gipity deploy [prod\|<env>]` | Deploy the app (prod), or an environment like `dev` |
 | `gipity page inspect <url>` | Console errors / failed resources on a deployed page |
 | `gipity db query "SQL"` | Query the project database |
 | `gipity fn call <name> [json]` / `gipity logs fn <name>` | Call / debug serverless functions |

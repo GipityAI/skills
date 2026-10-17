@@ -7,7 +7,7 @@ description: "Use when the user wants to build a 2D browser game - platformer, s
 
 > **Gipity required.** This skill needs the `gipity` CLI linked to a project. If `gipity status` errors or shows no project, run the setup flow in the `gipity` skill first (in Claude Code or Grok: `/gipity:setup`; in Codex or any other agent, follow the `gipity` skill's setup steps directly).
 >
-> This doc is shared across Gipity surfaces; where it names an agent tool, use the CLI equivalent: `add` → `gipity add <name>`, `file_write`/`file_read`/`file_delete` → edit files in the project directory directly (they auto-sync), `project_deploy` → `gipity deploy dev`, `code_execute` → `gipity sandbox run`. The live version of this doc: `gipity skill read 2d-game`.
+> This doc is shared across Gipity surfaces; where it names an agent tool, use the CLI equivalent: `add` → `gipity add <name>`, `file_write`/`file_read`/`file_delete` → edit files in the project directory directly (they auto-sync), `project_deploy` → `gipity deploy` (or `gipity deploy <env>` for an environment), `code_execute` → `gipity sandbox run`. The live version of this doc: `gipity skill read 2d-game`.
 
 # 2D Game - Phaser 3 Games
 
@@ -143,7 +143,7 @@ A 500-line rewrite of `scenes/game.js` is very hard to debug when something brea
 
 ## Verification After Deploy
 
-After every `gipity deploy dev`:
+After every `gipity deploy`:
 - Run `gipity page inspect <deploy-url>` to surface console errors.
 - **On the first deploy of a new game**, and any time you've made significant visual changes, also capture a screenshot and look at the image - `gipity page screenshot <url>`. To capture actual gameplay rather than the title screen, start the game in the same shot: `gipity page screenshot <url> --action "document.getElementById('play').click()"`. A clean console is NOT sufficient proof for Canvas/WebGL apps - render failures are often silent.
 - If you see a black screen with a clean console: assume a sync error fired during Phaser init (most commonly a missing API like `fillEllipse`, or physics attached to a raw Graphics). Re-read the "Common Phaser 3 Pitfalls" section above before rewriting.

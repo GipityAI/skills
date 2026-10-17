@@ -7,7 +7,7 @@ description: "Use when the user wants to build and put online a full-stack web a
 
 > **Gipity required.** This skill needs the `gipity` CLI linked to a project. If `gipity status` errors or shows no project, run the setup flow in the `gipity` skill first (in Claude Code or Grok: `/gipity:setup`; in Codex or any other agent, follow the `gipity` skill's setup steps directly).
 >
-> This doc is shared across Gipity surfaces; where it names an agent tool, use the CLI equivalent: `add` → `gipity add <name>`, `file_write`/`file_read`/`file_delete` → edit files in the project directory directly (they auto-sync), `project_deploy` → `gipity deploy dev`, `code_execute` → `gipity sandbox run`. The live version of this doc: `gipity skill read web-app-basics`.
+> This doc is shared across Gipity surfaces; where it names an agent tool, use the CLI equivalent: `add` → `gipity add <name>`, `file_write`/`file_read`/`file_delete` → edit files in the project directory directly (they auto-sync), `project_deploy` → `gipity deploy` (or `gipity deploy <env>` for an environment), `code_execute` → `gipity sandbox run`. The live version of this doc: `gipity skill read web-app-basics`.
 
 # Web App Best Practices
 
@@ -93,7 +93,7 @@ When building apps or websites, follow these practices for professional-quality 
 
 ## Deployment
 - **src/ detection**: If a `src/` directory exists, only `src/` is deployed. Otherwise the full project root is deployed.
-- **Local `<script>` tags MUST use `type="module"`** (e.g. `<script type="module" src="./js/main.js"></script>`) - this is what the templates ship. Prod deploys run Vite optimization by default, which only traces module scripts; it aborts (it won't silently drop your JS) when it hits a plain same-origin `<script src>`. If you have an app that genuinely can't use modules, deploy it with `gipity deploy prod --no-optimize` to upload files as-is. CDN `<script>` tags pointing at external URLs (Phaser, etc.) are always fine without `type="module"`.
+- **Local `<script>` tags MUST use `type="module"`** (e.g. `<script type="module" src="./js/main.js"></script>`) - this is what the templates ship. Prod deploys run Vite optimization by default, which only traces module scripts; it aborts (it won't silently drop your JS) when it hits a plain same-origin `<script src>`. If you have an app that genuinely can't use modules, deploy it with `gipity deploy prod --no-optimize` to upload files as-is (environments don't optimize unless you pass `--optimize`). CDN `<script>` tags pointing at external URLs (Phaser, etc.) are always fine without `type="module"`.
 - **Auto-deploy**: When deploy mode is "auto-dev" or "auto-prod", ANY file change (write, edit, copy, move, delete) triggers automatic deployment
 - **Rate limit**: Per-plan deploy-rate cap (shared between manual and auto)
 - **Caching**: the Gipity CDN cache is automatically invalidated on production deploys. Dev deploys use short cache TTLs.
@@ -108,7 +108,7 @@ Two rules keep that polish intact:
 - **Pass a `description` when installing a template.** It feeds the meta description, the og/twitter descriptions, and the share card's tagline. Without one, those tags are omitted and the shared link looks bare.
 - **These tags are one unit.** When you change the page's visible title or H1 from the install default, update the `<title>`, the `og:title`/`twitter:title`, and the JSON-LD `name` together so link previews and search results match what the page actually shows. Updating only the `<title>` leaves a stale structured-data/social name behind. After a title/description change, refresh the generated images too: `gipity brand apply`.
 
-**Custom app icon + share card:** `gipity brand set` re-renders every generated asset deterministically - e.g. `gipity brand set --emoji 🦍` (an emoji icon reads far more "this is my app" than the default letter), `--color "#3b82f6"` for the accent, `--tagline "..."` for the share-card subtitle. Then `gipity deploy dev` to publish. For fully custom art, overwrite `src/images/og-image.png` (1200x630) or the icon files directly (e.g. via `gipity generate image`) - `brand apply` regenerates them, so skip it after hand-replacing.
+**Custom app icon + share card:** `gipity brand set` re-renders every generated asset deterministically - e.g. `gipity brand set --emoji 🦍` (an emoji icon reads far more "this is my app" than the default letter), `--color "#3b82f6"` for the accent, `--tagline "..."` for the share-card subtitle. Then `gipity deploy` to publish. For fully custom art, overwrite `src/images/og-image.png` (1200x630) or the icon files directly (e.g. via `gipity generate image`) - `brand apply` regenerates them, so skip it after hand-replacing.
 
 **Older apps (installed before templates shipped this head):** their `index.html` has no og:image/twitter/apple-touch-icon/manifest tags, so regenerated assets alone won't show up in link previews. Run `gipity brand apply --fix-head` once: it regenerates the assets AND splices the current share/SEO head block into `src/index.html`, preserving the page's own title and description. Then deploy.
 
@@ -125,7 +125,7 @@ A deployed app should not depend on a third-party CDN being up to perform its co
 
 ## Browser Debugging
 
-Deploy, then look at the page - never assume it worked. `gipity deploy dev --inspect` deploys and reports the live page in one step (console errors, failed resources, timing, layout overflow); `gipity page screenshot <url>` shows what it actually renders; `gipity page test <url> --action <js> --observe <js>` drives an interactive feature and asserts the headline behavior really works (e.g. "type a message → get an AI reply") instead of just proving the page loaded. Don't hand-roll a DOM-poking `page eval` script for that.
+Deploy, then look at the page - never assume it worked. `gipity deploy --inspect` deploys and reports the live page in one step (console errors, failed resources, timing, layout overflow); `gipity page screenshot <url>` shows what it actually renders; `gipity page test <url> --action <js> --observe <js>` drives an interactive feature and asserts the headline behavior really works (e.g. "type a message → get an AI reply") instead of just proving the page loaded. Don't hand-roll a DOM-poking `page eval` script for that.
 
 **Full debugging loop → the [app-debugging](https://docs.gipity.ai/skills/app-debugging.html) skill:** every flag on inspect/screenshot/eval, reading function logs, calling a function directly, and what the headless browser can't test.
 

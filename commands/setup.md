@@ -14,7 +14,7 @@ Set up Gipity in the current directory, completing only the stages that aren't a
 
 4. **Confirm and orient.** Run `gipity status` to show the linked project, then tell the user what they can do next:
    - Start an app: `gipity add web-simple` (static), `web-fullstack` (frontend + API + database), `api`, `2d-game`, or `3d-world`
-   - Deploy: `gipity deploy dev` → live at `https://dev.gipity.ai/<account>/<project>/`
+   - Deploy: `gipity deploy` → live at `https://app.gipity.ai/<account>/<project>/` (add an isolated `dev` environment later with `gipity deploy dev`)
    - Explore the platform: `gipity skill list`
 
 If anything fails, show the user the exact error output and the command that produced it.
