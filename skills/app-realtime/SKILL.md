@@ -15,9 +15,7 @@ Gipity apps get WebSocket-powered rooms for multiplayer games, chat, collaborati
 
 **Where it runs:** one region, US West (Oregon), with no nearest-region routing: every client connects there, so players far away see more latency: typically about 70 ms round trip from the US East Coast, about 150 ms from Western Europe, and 100-200 ms from East Asia and Australia, plus each player's own network. That is fine for party, turn-based, co-op and casual action games; for twitch-speed play overseas, measure with `rtt()` (or `gipity realtime bench`) before promising it.
 
-**Most apps should build on the `@gipity/realtime` kit** (`gipity add realtime`) rather than the raw Colyseus client - see "The realtime kit" below. The raw client is kept as a fallback in [app-realtime-reference](https://docs.gipity.ai/skills/app-realtime-reference.html) (`gipity skill read app-realtime-reference`).
-
-**The realtime build loop ends with a concurrent two-client check, not a page load.** Realtime work is only "done" after `gipity page test <url> --clients 2 --observe ...` shows the clients seeing each other (details in "Verifying presence/shared state across clients" below). A single `page inspect`/`page eval` cannot verify multiplayer, and two sequential evals are a false negative - plan the test-mode hooks for this while building, not after.
+**The realtime build loop ends with a concurrent two-client check, not a page load.** Realtime work is only "done" after `gipity page test <url> --clients 2 --observe ...` shows the clients seeing each other (it also checks the clients overlapped in time). A single `page inspect`/`page eval` cannot verify multiplayer, and two sequential evals are a false negative. Plan a URL-param test mode while building, so a passive load exercises the join path. Both recipes: "Multiplayer apps" in [app-debugging-reference](https://docs.gipity.ai/skills/app-debugging-reference.html#multiplayer-apps-verifying-presenceshared-state-across-clients).
 
 ## Pick a room model (all built into the kit)
 
@@ -47,7 +45,7 @@ Shared state held by the server. Auto-tracks players in a synced map, plus a gen
 
 ## The realtime kit (start here)
 
-For anything beyond a toy, do not hand-roll the Colyseus client - run `gipity add realtime` and build on the `@gipity/realtime` kit. It wraps everything in this doc (onStateChange diffing, tokens, reconnection, lobby + match rooms) behind a tested, engine-agnostic API. The raw Colyseus patterns - connecting by hand, room discovery over REST, relay/state message shapes, and the state-room boilerplate - are the fallback and a reference for what the kit does internally: read [app-realtime-reference](https://docs.gipity.ai/skills/app-realtime-reference.html).
+**Most apps should build on the kit.** For anything beyond a toy, do not hand-roll the Colyseus client - run `gipity add realtime` and build on the `@gipity/realtime` kit. It wraps everything in this doc (onStateChange diffing, tokens, reconnection, lobby + match rooms) behind a tested, engine-agnostic API. The raw Colyseus patterns - connecting by hand, room discovery over REST, relay/state message shapes, and the state-room boilerplate - are the fallback and a reference for what the kit does internally: read [app-realtime-reference](https://docs.gipity.ai/skills/app-realtime-reference.html).
 
 **The kit documents itself - `gipity skill read realtime` prints its README.** This skill covers *what to build*; the kit's README is the *API reference* (its "Rooms" section lists every room-handle method in one block). Read the README and `examples/` instead of reverse-engineering `lib/`; both ship inside the app at `src/packages/realtime/`.
 
@@ -161,16 +159,13 @@ A who's-here / presence list has three quality gaps that are easy to miss while 
 ```js
 import { createRealtime } from '@gipity/realtime';
 
-// 1. Stable identity that survives a reload - generate a peer id once, persist the
-//    chosen name, and pre-fill the input so a returning teammate isn't re-prompted.
+// 1. Stable identity that survives a reload
 const peerId = localStorage.getItem('peerId')
   || ('peer-' + Math.random().toString(36).slice(2, 10));
 localStorage.setItem('peerId', peerId);
 nameInput.value = localStorage.getItem('name') || '';   // pre-fill, don't re-ask
 
-// 2. Scope the SPACE from the URL so different teams sharing one app link get
-//    separate presence lists. The room name stays the provisioned one; the
-//    scope partitions it into one instance per team.
+// 2. Scope the SPACE from the URL (the room name stays the provisioned one)
 const scope = new URLSearchParams(location.search).get('team') // ?team=engineering
   || 'general';                                                // sensible default
 
@@ -182,11 +177,8 @@ function announce(name) {
   here.setLocal({ peerId, name });                      // announce a stable identity
 }                                                       // (rebroadcast ~20 Hz until changed)
 
-// 3. Render a stable identity per peer so two people both named "Sam" stay distinct:
-//    an initials avatar plus the stable peer id, not the display name alone.
-//    onChange fires PER PEER as (sid, peer) - don't expect the whole roster as its
-//    argument. Rebuild the roster from peers(), a Map of sid → peer holding every
-//    REMOTE peer; your own state is here.local(), not in the Map.
+// 3. Render a stable identity per peer. onChange fires PER PEER as (sid, peer);
+//    rebuild the roster from peers() (remote peers only) plus here.local().
 function renderAll() {
   const everyone = [here.local(), ...here.peers().values()].filter(Boolean);
   renderRoster(everyone.map(p => ({
@@ -280,10 +272,6 @@ When an app fields **both bot and human players**, anything a bot can do on its 
 - **public**: Pass app token in join options - no login needed
 - **user**: Requires a signed-in user. With the kit, pass `signedIn: true` (the page is signed in with `Gipity.auth`) or `userToken` (an app player's Steam / guest token); the kit trades it for a short-lived ticket at `POST /api/<guid>/realtime/ticket`. Not signed in: `RealtimeJoinError` `'auth'`. This is what lets a function reach one user with `realtime.publish({ toUser })`.
 
-## Testing multiplayer
-
-Presence and shared state only show up with two clients live at once: use `gipity page test --clients 2 --action ... --observe ...` (it checks the clients overlapped), not two sequential `page eval` calls, and add a URL-param test mode so a passive load exercises the join path. Both are in the `app-debugging-reference` skill ("Multiplayer apps").
-
 ## Tips
 - A multiplayer game needs a visible share affordance: show the invite link / code with a copy button on the "waiting for opponent" screen (that is when it's needed), not after the game starts
 - Split state into many small keys, not one big JSON blob (each key change re-syncs the entire value)
@@ -293,4 +281,5 @@ Presence and shared state only show up with two clients live at once: use `gipit
 
 ## Related
 - [app-realtime-reference](https://docs.gipity.ai/skills/app-realtime-reference.html) - host handoff, reload, and delivery rules for the kit; the raw Colyseus client: connecting without the kit, room discovery over REST, relay + state room message patterns, turn-based games, and the safe state-room initialization boilerplate
+- [app-debugging-reference](https://docs.gipity.ai/skills/app-debugging-reference.html) - "Multiplayer apps": the two-client `page test --observe` check and the URL-param test mode
 - [realtime-scheduled-app](https://docs.gipity.ai/skills/realtime-scheduled-app.html) - end-to-end recipe combining presence + messages with a database and a scheduled poster
