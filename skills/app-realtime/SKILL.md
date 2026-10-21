@@ -248,7 +248,7 @@ refreshAll();                                                // and once on (re)
 
 ## Provisioning a room
 
-A room must exist before an app can connect - the server rejects unprovisioned room names. `gipity add realtime` already provisions three `state`/`public` rooms: one named after the project, plus `lobby` and `match` (what `createParty` uses), so kit apps usually need no extra step. Many *instances* of one provisioned room come free via `scope` - never provision per team/session/code. For additional names there are **two equivalent ways** - both create the same room record, so pick whichever fits the workflow:
+A room must exist before an app can connect - the server rejects unprovisioned room names. `gipity add realtime` provisions three `state`/`public` rooms: one named after the project, plus `lobby` and `match` (what `createParty` uses). `createRealtime()` with no `room` joins the first room the realtime phase declares. Many *instances* of one room come free via `scope` - never provision per team/session/code. Two equivalent ways to add names (same room record):
 
 - **Declarative (best for deployed apps)** - declare it in `gipity.yaml` as a `realtime` deploy phase. `gipity deploy` reconciles it: creates it if missing, updates it when a setting changed, and leaves it alone otherwise - reproducible, no separate step. The `3d-world` / `3d-engine` templates already ship this. Optional per room: `max_clients` (1-200, default 50), `seat_hold_seconds` (0-300, default 30), `host_hold_seconds` (0-600, default 60), `host_handoff` (default false) and `host_grace_seconds` (1-60, default 5), see "Host handoff"; `server_channels` (up to 32 channel names only functions may publish on, see "Messages from your functions").
   ```yaml

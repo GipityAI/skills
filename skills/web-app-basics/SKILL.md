@@ -198,6 +198,6 @@ Load the ones that match what you're building - frontend recipes, game and 3D te
 - `app-realtime` - Real-time multiplayer rooms and WebSocket
 - `app-image` - Image generation (Gipity Image)
 - `app-video` - Video generation and understanding (Gipity Video)
-- `app-tts` - Text-to-speech (Gipity Speech - multi-speaker, 60+ languages)
+- `app-tts` - Text-to-speech (Gipity Speech - voices, two-voice dialogue, language selection)
 - `app-audio` - Sound effects, music generation, and audio transcription
 - `app-files` - File uploads (Gipity Storage, up to 30GB, progress tracking, thumbnails)
