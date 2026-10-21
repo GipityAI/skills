@@ -81,7 +81,11 @@ function findProjectConfig() {
 const configPath = findProjectConfig();
 if (!process.env.GIPITY_CONVERSATION_GUID && !configPath) process.exit(0);
 
-if (configPath) {
+// Mirror the CLI's captureEnabled(): GIPITY_CAPTURE=on forces recording even
+// when .gipity.json opts out (new projects start with captureHooks: false;
+// GipRunner scores builds from the recording). GIPITY_CAPTURE=off is handled
+// by the runner.
+if (configPath && process.env.GIPITY_CAPTURE !== 'on') {
   try {
     const cfg = JSON.parse(readFileSync(configPath, 'utf-8'));
     if (cfg.captureHooks === false) process.exit(0);
