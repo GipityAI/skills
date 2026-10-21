@@ -27,7 +27,7 @@ Gipity apps get WebSocket-powered rooms for multiplayer games, chat, collaborati
 | **Open lobby** | browse open games, quick-match strangers | `createParty()` → `onTables()` / `join(entry)` / `quickMatch()` |
 | **One screen, phone controllers** | couch/party games: a TV page hosts, phones scan a QR code and send inputs | `createParty()` → `host()` on the screen, `joinFromUrl()` on phones, `sendToHost()` (see "Screen + phone controllers") |
 
-Don't hand-roll a lobby, invite link, or room-code flow out of the primitives - `createParty` already owns those flows and their failure modes (cancelable hosting, typed join errors, one staleness window). Hand-rolled versions have repeatedly shipped ghost tables and UIs stuck on "Joining...".
+Don't hand-roll a lobby, invite link, or room-code flow - `createParty` owns those flows and their failure modes (cancelable hosting, typed join errors, one staleness window); hand-rolled versions keep shipping ghost tables and UIs stuck on "Joining...".
 
 ## Room Types
 
@@ -41,13 +41,13 @@ Shared state held by the server. Auto-tracks players in a synced map, plus a gen
 
 ### Messages (both room types)
 - **The server stamps every relayed message** with `senderId` and `serverTs` (client values are overwritten, so `senderId` is safe to trust); the kit adds `sentAt` in server-clock ms. Send to everyone else, or target `{ to: sid }`, `{ to: [sid1, sid2] }`, or `sendToHost`: delivery is immediate, reliable, and ordered per sender.
-- **Limits:** 10,000 characters per message or data value; 120 messages/s per client (bursts to 240; a sustained flood is disconnected); 1,000 data keys and 2 MB of data per room.
+- **Limits:** 10,000 characters per data value (~80 KB per message); 120 messages/s per client (bursts to 240; a sustained flood is disconnected); 1,000 data keys and 2 MB of data per room.
 
 ## The realtime kit (start here)
 
 **Most apps should build on the kit.** For anything beyond a toy, do not hand-roll the Colyseus client - run `gipity add realtime` and build on the `@gipity/realtime` kit. It wraps everything in this doc (onStateChange diffing, tokens, reconnection, lobby + match rooms) behind a tested, engine-agnostic API. The raw Colyseus patterns - connecting by hand, room discovery over REST, relay/state message shapes, and the state-room boilerplate - are the fallback and a reference for what the kit does internally: read [app-realtime-reference](https://docs.gipity.ai/skills/app-realtime-reference.html).
 
-**The kit documents itself - `gipity skill read realtime` prints its README.** This skill covers *what to build*; the kit's README is the *API reference* (its "Rooms" section lists every room-handle method in one block). Read the README and `examples/` instead of reverse-engineering `lib/`; both ship inside the app at `src/packages/realtime/`.
+**The kit documents itself - once installed, `gipity skill read realtime` prints its README.** This skill covers *what to build*; the kit's README is the *API reference* (its "Rooms" section lists every room-handle method in one block). Read the README and `examples/` instead of reverse-engineering `lib/`; both ship inside the app at `src/packages/realtime/`.
 
 **Channels** - one room, namespaced sub-streams. `rt.channel(name, { sync })` where `sync` is:
 - `messages` - pub/sub relay.
@@ -74,7 +74,7 @@ const joined = await party.joinFromUrl();
 //        / party.quickMatch({ host: name })
 ```
 
-Every failed join **throws a `RealtimeJoinError`** with `err.code` `'not-found'` | `'full'` | `'gone'` | `'auth'` | `'offline'` | `'failed'` - catch it and show the right message ("game is full", "invite expired") instead of a stuck "Joining...". Game state goes in a `store` channel on `table.channel('state', { sync: 'store' })`. `table.onPeerLeave` fires at once on a clean leave (tab closed or reloaded), or after the seat hold (30 s default) for a dropped connection that didn't return; a blip within the hold never fires it. Worked file: `examples/party-game.js` in the kit.
+Every failed join **throws a `RealtimeJoinError`** with `err.code` `'not-found'` | `'full'` | `'gone'` | `'auth'` | `'offline'` | `'unprovisioned'` (room name not provisioned) | `'failed'` - catch it and show the right message ("game is full", "invite expired") instead of a stuck "Joining...". Game state goes in a `store` channel on `table.channel('state', { sync: 'store' })`. `table.onPeerLeave` fires at once on a clean leave (tab closed or reloaded), or after the seat hold (30 s default) for a drop that didn't return; a blip within the hold never fires it. Worked file: `examples/party-game.js` in the kit.
 
 **Several players on one computer** (couch co-op): pass `{ seats: N }` (1-8) to `host` / `joinByCode` / `joinFromUrl` / `quickMatch`; `createParty`'s `seats` is the table total, enforced by the server (a 3-player join with 2 left throws `'full'`). Details: [app-realtime-reference](https://docs.gipity.ai/skills/app-realtime-reference.html).
 
@@ -92,8 +92,8 @@ input.on('press', (m) => {
   const seat = seatFor(table.room.peerInfo(m.senderId)?.clientId);   // clientId survives a phone reload
   game.apply(seat, m.key, m.down);
   latency.push(table.room.serverNow() - m.sentAt);                  // input age, ms
+  input.send('vibrate', { ms: 200 }, { to: m.senderId });          // one phone only
 });
-input.send('vibrate', { ms: 200 }, { to: m.senderId });            // one phone only
 
 // Phone page (opened from the QR code)
 const table = await party.joinFromUrl();
@@ -108,7 +108,7 @@ leftBtn.onpointerup   = () => input.sendToHost('press', { key: 'left', down: fal
 - **No host, no delivery:** `sendToHost()` while no host is connected (the TV hasn't joined yet, or is reloading) is dropped by the server, which tells the sender: the room fires `'undelivered'` `{ channel, type, to: 'host', reason: 'no-host' }`. `table.room.hostId()` is `null` until a host is there and `onHostChange(cb)` fires when it arrives, so a controller that must not lose input can buffer until then. Delivered messages carry no acknowledgement.
 
 **Rejoining a full table** works from the same invite link or code once a seat frees; a phone whose page crashed takes its held seat back even when full (see the reference).
-- Measure before you ship: `gipity realtime bench match --clients 8 --rate 20` reports controller-to-screen input age (p50/p95/p99), loss and ordering against the live server.
+- Measure before you ship: `gipity realtime bench match --clients 8 --rate 20` reports input age (p50/p95/p99), loss and ordering on the live server.
 
 ### Host handoff (when a phone hosts)
 
@@ -146,7 +146,7 @@ All four throw `RealtimeJoinError` on failure. `createDirectory(lobby)` turns th
 
 **Delivery guarantees during reconnect and handoff:** nothing is queued or replayed. A peer that is away misses broadcasts (a send targeted only at it comes back `'undelivered'`); after `'reconnected'` it gets new messages only, while the data map, player list, and current host resync. Messages that reached an old host are not redelivered to its successor. Full rules, reloads and crashes: [app-realtime-reference](https://docs.gipity.ai/skills/app-realtime-reference.html).
 
-Worked references ship inside the kit: `examples/` has one file per shape (chat, whiteboard, kanban, city-builder, agent-ops, desktop, lobby, connect-four) plus `README.md`. Room names still need provisioning - see below.
+Worked references: the kit's `examples/` has one file per app shape (chat, kanban, lobby, party game, couch controllers, ...). Room names still need provisioning - see below.
 
 ### Presence done well
 
@@ -270,7 +270,7 @@ When an app fields **both bot and human players**, anything a bot can do on its 
 
 ## Auth
 - **public**: Pass app token in join options - no login needed
-- **user**: Requires a signed-in user. With the kit, pass `signedIn: true` (the page is signed in with `Gipity.auth`) or `userToken` (an app player's Steam / guest token); the kit trades it for a short-lived ticket at `POST /api/<guid>/realtime/ticket`. Not signed in: `RealtimeJoinError` `'auth'`. This is what lets a function reach one user with `realtime.publish({ toUser })`.
+- **user**: Requires a signed-in user. With the kit, pass `signedIn: true` (signed in with `Gipity.auth`) or `userToken` (an app player's Steam / guest token); the kit trades it for a short-lived ticket at `POST /api/<guid>/realtime/ticket`. Not signed in: `'auth'` (`rt.join*` throw it; `rt.connect()` resolves `null` with it in `rt.getLastError()`). This is what lets a function reach one user with `realtime.publish({ toUser })`.
 
 ## Tips
 - A multiplayer game needs a visible share affordance: show the invite link / code with a copy button on the "waiting for opponent" screen (that is when it's needed), not after the game starts

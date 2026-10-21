@@ -37,7 +37,7 @@ All files are in `src/` and fully editable. The engine layer is identical to `3d
 
 - `game.js` - main orchestrator, already wired to the demo. **Start here.**
 - `scene.js` - the demo scene (voxel structures in two rings). Replace with your own world.
-- `config.js` - project metadata + `features` flags. `settings.js` - tunable gameplay values. `strings.js` - display text.
+- `config.js` - project metadata + `features` flags. `settings.js` - tunable gameplay values.
 - A `rocket-launcher` feature (projectile + explosion + audio) and block-collision tick sounds.
 - A player controller wired with an orbit + aim camera.
 
@@ -186,10 +186,12 @@ for (const [sid, peer] of network.avatars.peers()) {
 Multiplayer is a feature like rocket-launcher - flip it on or off in `config.js`:
 
 ```js
-features: { 'multiplayer': false }                                   // solo game
-features: { 'multiplayer': { room: 'my-arena' } }                    // default: presence + avatars
-features: { 'multiplayer': { room: 'lobby', sync: { worldState: true } } }  // host-authoritative world
+features: { 'multiplayer': false }                                        // solo game
+features: { 'multiplayer': { room: '<your room>' } }                       // presence + avatars
+features: { 'multiplayer': { room: '<your room>', sync: { worldState: true } } }  // host-authoritative world (as shipped)
 ```
+
+`<your room>` is the room name already in the shipped `config.js`, which matches the one room in `gipity.yaml`'s `realtime` phase. Keep `room` set: without it the feature falls back to `game-lobby`, and any name not in that phase is rejected as unprovisioned. To use a different name, add it to the phase's `rooms:` too.
 
 Solo is that one line and nothing else: **leave `gipity.yaml` as shipped.** Its `realtime` phase only registers a room name (no server, no cost, no plan limit) and an unconnected room does nothing, so there is no manifest to strip out.
 
@@ -199,15 +201,20 @@ The room is declared in the template's `gipity.yaml` (a `realtime` deploy phase)
 
 ## Persistence
 
-Use App API functions to save/load player data:
+Use App API functions to save/load player data (players sign in first: see the `app-auth` skill):
+
+```sql
+-- migrations/001_saves.sql
+CREATE TABLE saves (user_guid TEXT PRIMARY KEY, data JSONB NOT NULL);
+```
 
 ```js
 // functions/save-progress.js
 export default async function (ctx, { db }) {
   const { data } = ctx.body;
-  await db.execute(
+  await db.query(
     'INSERT INTO saves (user_guid, data) VALUES ($1, $2) ON CONFLICT (user_guid) DO UPDATE SET data = $2',
-    [ctx.auth.userGuid, data]
+    [ctx.auth.userGuid, JSON.stringify(data)]
   );
   return { ok: true };
 }
@@ -219,16 +226,18 @@ export default async function (ctx, { db }) {
 }
 ```
 
-Declare in `gipity.yaml`:
+Add the phases to `gipity.yaml` (keep the shipped `files` and `realtime` phases). A function reaches only the tables listed in its `tables:`:
 
 ```yaml
-functions:
-  save-progress:
-    auth_level: user
-    tables: [saves]
-  load-progress:
-    auth_level: user
-    tables: [saves]
+    - name: database
+      type: sql
+      source: migrations
+    - name: functions
+      type: functions
+      source: functions
+      function_definitions:
+        - { name: save-progress, auth: user, tables: [saves] }
+        - { name: load-progress, auth: user, tables: [saves] }
 ```
 
 ## Mobile and Performance
@@ -251,7 +260,7 @@ Verify a deploy when it matters - the first deploy, structural changes (new page
 
 Full loop - reading function logs, calling a function directly, driving the page: the `app-debugging` skill.
 
-**The version line** `[3D World] Game Title v1.0 (build 2026-...)` appears in the console on every boot - use it to confirm the correct build is deployed.
+**The version line** `[3D World] Game Title v1 | Template v119` appears in the console on every boot - use it to confirm the correct build is deployed.
 
 ## Related Skills
 

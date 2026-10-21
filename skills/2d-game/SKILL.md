@@ -11,7 +11,7 @@ description: "Use when the user wants to build a 2D browser game - platformer, s
 
 # 2D Game - Phaser 3 Games
 
-**2D Game** is the Phaser-based game template on Gipity. All files are fully editable - no locked template layer. Uses Phaser 3.80.1 via CDN with arcade physics.
+**2D Game** is the Phaser-based game template on Gipity. All files are fully editable - no locked template layer. Uses Phaser 3.90.0 via CDN with arcade physics.
 
 **When to use this:** When the user asks for a 2D game - platformer, side-scroller, arcade, puzzle, endless runner, top-down, shooter, or RPG. For simple games (wordle, quiz, card games), use `web-simple`. For 3D multiplayer apps, use `3d-engine` for a blank template or `3d-world` for a playable rocket-launcher app.
 
@@ -38,7 +38,6 @@ src/
     config.js           - Phaser.Game config, scene registration
     controls.js         - Touch controls overlay (virtual joystick, buttons, fullscreen)
     settings.js         - Tunable values (canvas, colors, physics, player, gameplay)
-    strings.js          - User-facing display text
     scenes/
       boot.js           - Preloader with progress bar
       game.js           - Main game scene (gameplay logic)
@@ -166,7 +165,7 @@ gipity page eval "<deploy-url>" "
 For a longer driver (play a full round, force a win, assert the game-over overlay), put the script in a file and pass `--file` - no shell quoting, and the body may use `await` and `return`:
 
 ```bash
-gipity page eval "<deploy-url>" --file ./tests/drive-game.js --json
+gipity page eval "<deploy-url>" --file tmp/drive-game.js --json
 ```
 
 The eval body has a **~20s in-page budget**, so split a long sequence into one call per state you're verifying.
@@ -190,7 +189,7 @@ gipity page screenshot "<deploy-url>" -o win.png \
   --action "const { game } = await import('./js/config.js'); game.scene.getScene('Game').winGame();"
 ```
 
-Write throwaway driver scripts and screenshots **outside the project directory** (e.g. `/tmp`) - the project auto-syncs to Gipity, so scratch files land in the user's storage. If they must live in the project, add the path to `.gipityignore`.
+Write throwaway driver scripts and screenshots to the project's `tmp/` folder: it is never synced or deployed (`page screenshot` already saves there by default). Anything elsewhere in the project syncs to the user's storage.
 
 ### Animations
 ```js

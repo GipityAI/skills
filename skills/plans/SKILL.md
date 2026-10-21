@@ -18,7 +18,7 @@ Your job when someone hits a wall: **see the limit, check the plans, show them, 
 ## The model in one breath
 
 - **Credits** are the single consumable. Everything metered - LLM calls, image/video/music/speech generation, sandbox runs, deploys, web search - spends credits. One balance, one bill. No per-service invoices.
-- **Plans** set your **limits** (how much you can have) and your **monthly credit grant** (how much you can spend).
+- **Plans** set your **limits** (how much you can have) and your **credit grant** (how much you can spend): Pro gets a monthly grant, Free gets a weekly grant whose unused credits don't roll over.
 - Two tiers today: **Free** and **Gipity Pro ($20/mo, 20,000 credits/mo, 31-day expiry)**. Pro users can also buy one-time **credit packs** to top up.
 
 Always pull **live** numbers rather than quoting from memory - limits change. `gipity credits list` is the source of truth.
@@ -31,6 +31,7 @@ These are all real, enforced caps. On Free they bite; Pro lifts them. Show the u
 |---|---|---|
 | Projects | 250 | 1,000 |
 | Databases | 3 | 250 |
+| Environments per app (besides prod) | 1 | 10 |
 | Storage | 5 GB | 1 TB |
 | Workflows | 2 | 50 |
 | Cron frequency | 24h minimum | no minimum |
@@ -41,6 +42,7 @@ These are all real, enforced caps. On Free they bite; Pro lifts them. Show the u
 | Music generation | Pro only | unlimited |
 | Image generation | 3/mo free | unlimited |
 | Speech & sound FX | 3/mo free | unlimited |
+| Open models (the model path opencode runs on) | output price up to $1 per million tokens | any |
 
 (These are the current values; confirm with `gipity credits list`.)
 

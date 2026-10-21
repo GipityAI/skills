@@ -15,17 +15,17 @@ When building apps or websites, follow these practices for professional-quality 
 
 ## Getting Started - Start Here
 
-**STRONGLY RECOMMENDED:** Start every new web app by adding a template with the `add` tool. Pick the right one (`web-simple` for static frontend-only, `web-fullstack` for backend+DB, `api` for pure API). It creates the standard `src/` structure with favicon, meta tags, and working files wired up and ready to build on - no demo to delete first. Deploy automatically uses `src/` when it exists. Only hand-roll files if the user explicitly tells you to skip the template.
+**STRONGLY RECOMMENDED:** Start every new web app by adding a template with `gipity add <template>`. Pick the right one (`web-simple` for static frontend-only, `web-fullstack` for backend+DB, `api` for pure API). It creates the standard `src/` structure with favicon, meta tags, and working files wired up and ready to build on - no demo to delete first. Deploy automatically uses `src/` when it exists. Only hand-roll files if the user explicitly tells you to skip the template.
 
 **Naming:** Use the user's name verbatim if they gave one. If you need to invent a name, blend "Gip" or "Gipity" into it (e.g. "Gipity Notes", "GipPic", "Gip Tac Toe") - be creative but don't force it if it genuinely doesn't fit.
 
 **Starting over in an existing project:** If `src/` (or `functions/`, `migrations/` for fullstack/api) already exists and the user wants a clean rebuild, delete those directories first, then run `gipity add` normally. Or pass `--force` to `gipity add` to overwrite in one step - destructive, so confirm with the user first. Non-template content (media, data, notes) is preserved either way.
 
-**Where things live (web-simple) - what to edit:** For a content or markup change, edit `src/index.html`. For visible display text (labels, button copy), edit `src/js/strings.js`. For styling, edit `src/css/styles.css`. `src/js/main.js` holds the app logic. The rest - `config.js`, `i18n.js`, `settings.js`, `translations.js` - is boilerplate you only open when enabling i18n or feature flags. Don't read every file before a simple edit; go straight to the one that owns the thing you're changing.
+**Where things live (web-simple) - what to edit:** For a content or markup change (including visible display text), edit `src/index.html`. For styling, edit `src/css/styles.css`. `src/js/main.js` holds the app logic. `src/js/config.js` (app identity and constants) and `src/js/settings.js` (tunables) are small helpers you open only when you need them. Don't read every file before a simple edit; go straight to the one that owns the thing you're changing.
 
 **Templates install real files - Read one before you change it.** `add` writes a full set of starter files (HTML/CSS/JS, `gipity.yaml`, functions, and more), already on disk with placeholders (`{{TITLE}}`, ...) substituted - so they are *not* new files. Editing from memory of the template misses the exact-string match (the title is already baked into `<h1>`, not `{{TITLE}}`) and loops. One read of the file you're about to change defuses it - just that file, not the whole tree.
 
-**Multi-language (web-simple):** The template ships a dormant i18n system. Flip `config.features.i18n` to `true` in `src/js/config.js` to enable the language picker and `translations.js` lookup; the code in `src/js/strings.js`, `src/js/i18n.js`, and `src/js/main.js` is self-documenting - read those to see the `render()` + `i18n:changed` event pattern.
+**Multi-language:** `web-simple` and `web-fullstack` ship without i18n. Run `gipity add i18n` to add a language picker, locale persistence, RTL and translation lookup (it scaffolds `src/js/strings.js`); see the `i18n` skill.
 
 ## File Structure
 - **Use src/ convention**: All app files live under `src/` - `src/index.html`, `src/css/styles.css`, `src/js/main.js`, `src/images/`
@@ -94,10 +94,9 @@ When building apps or websites, follow these practices for professional-quality 
 ## Deployment
 - **src/ detection**: If a `src/` directory exists, only `src/` is deployed. Otherwise the full project root is deployed.
 - **Local `<script>` tags MUST use `type="module"`** (e.g. `<script type="module" src="./js/main.js"></script>`) - this is what the templates ship. Prod deploys run Vite optimization by default, which only traces module scripts; it aborts (it won't silently drop your JS) when it hits a plain same-origin `<script src>`. If you have an app that genuinely can't use modules, deploy it with `gipity deploy prod --no-optimize` to upload files as-is (environments don't optimize unless you pass `--optimize`). CDN `<script>` tags pointing at external URLs (Phaser, etc.) are always fine without `type="module"`.
-- **Auto-deploy**: When deploy mode is "auto-dev" or "auto-prod", ANY file change (write, edit, copy, move, delete) triggers automatic deployment
-- **Rate limit**: Per-plan deploy-rate cap (shared between manual and auto)
+- **Rate limit**: Per-plan deploy-rate cap
 - **Caching**: the Gipity CDN cache is automatically invalidated on production deploys. Dev deploys use short cache TTLs.
-- **File hosting**: Use `host_file` to make workspace files publicly accessible via URL (max 50MB). Useful for images in emails or sharing files outside the app.
+- **File hosting**: `gipity upload <file>` stores a file and prints a durable public URL right away, no deploy needed. Useful for images in emails or sharing files outside the app.
 
 ## Keep page metadata consistent
 
@@ -133,7 +132,7 @@ Deploy, then look at the page - never assume it worked. `gipity deploy --inspect
 
 For non-trivial apps, don't write the whole thing in one pass. Work in small verified steps:
 
-1. Add a template (`add` tool / `gipity add <template>`) and deploy - confirm the starter renders.
+1. Add a template (`gipity add <template>`) and deploy - confirm the starter renders.
 2. Add ONE feature or screen, deploy, verify.
 3. Repeat.
 
