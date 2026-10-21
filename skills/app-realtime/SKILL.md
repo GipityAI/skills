@@ -205,11 +205,60 @@ The presence channel's surface is exactly: `setLocal(obj)`, `local()`, `peers()`
 
 Plain `setLocal(obj)` needs **no adapter** - payloads are merged into peer records with an `Object.assign`. A custom presence adapter (`{ encode, apply, newPeer }`, e.g. for quantized positions) is only for controlling the wire format - its contract is documented in the kit's README ("The presence adapter contract") and `contracts/adapter.contract.md` - the same rule as every other kit internal: the README and `examples/` are the reference, `lib/` is not.
 
+## Messages from your functions (stop polling)
+
+When server work changes what a page shows (a webhook updated a row, a GPU job's `on_complete` stored its result, an approval landed), push a message into the room from the function instead of having the browser poll a function every few seconds. The injected **`realtime.publish()`** service delivers into the app's live room instances as an ordinary channel message:
+
+```js
+// functions/job-done.js   (gipity.yaml: services: ['realtime'], tables: ['renders'])
+export default async function (ctx, { db, realtime }) {
+  const { run_guid, status, output } = ctx.body;            // a job's on_complete payload
+  const { rows } = await db.query(
+    'UPDATE renders SET status = $1, url = $2 WHERE run_guid = $3 RETURNING id, user_guid',
+    [status, output?.url ?? null, run_guid]);
+  if (!rows[0]) return { ok: false };
+  // Tell that user's open pages; send an id, let the page fetch the rest.
+  const sent = await realtime.publish({
+    room: 'updates', channel: 'renders', type: 'changed',
+    data: { id: rows[0].id, status },
+    toUser: rows[0].user_guid,                               // omit to reach everyone in the room
+  });
+  return { ok: true, delivered: sent.delivered };
+}
+```
+
+```js
+// browser: one listener replaces the polling loop
+import { createRealtime } from '@gipity/realtime';
+const rt = createRealtime({ room: 'updates', signedIn: true });  // user room: joins as the Gipity.auth user
+rt.channel('renders').on('changed', (m) => {
+  if (m.fromServer) refreshRender(m.id);                     // re-fetch through your own function
+});
+await rt.connect();
+refreshAll();                                                // and once on (re)connect: nothing is replayed
+```
+
+```yaml
+# gipity.yaml
+- name: realtime
+  type: realtime
+  rooms:
+    - name: updates
+      room_type: state
+      auth_level: user            # needed for toUser; joins carry the signed-in user
+      server_channels: [renders]  # clients cannot send on it; only functions can
+```
+
+- **Signature:** `realtime.publish({ room, channel, type, data?, scope?, toUser? })` returns `{ delivered, rooms }`. `room` is a provisioned room of this app; `channel` the kit channel name; `type` what `ch.on(type)` hears; `data` an object of at most 16 KB JSON (send ids, not payloads); `scope` one scope (default: all); `toUser` a user guid (e.g. `ctx.auth.userGuid`), needs an `auth_level: user` room.
+- **Trust:** delivered messages carry `fromServer: true`, `senderId: null`, `serverTs`; clients cannot forge `fromServer`. On a `server_channels` channel a client send is dropped (`'undelivered'`, reason `'server-only'`).
+- **Nobody connected** returns `{ delivered: 0, rooms: 0 }`. Nothing is queued, so load current state on connect and reconnect.
+- **Scope and limits:** publishes stay in the function's environment (dev reaches dev pages). Free; counts toward `max_service_calls`; 50 per second per app. Suppressed in `gipity test` (`suppressed: true`).
+
 ## Provisioning a room
 
 A room must exist before an app can connect - the server rejects unprovisioned room names. `gipity add realtime` already provisions three `state`/`public` rooms: one named after the project, plus `lobby` and `match` (what `createParty` uses), so kit apps usually need no extra step. Many *instances* of one provisioned room come free via `scope` - never provision per team/session/code. For additional names there are **two equivalent ways** - both create the same room record, so pick whichever fits the workflow:
 
-- **Declarative (best for deployed apps)** - declare it in `gipity.yaml` as a `realtime` deploy phase. `gipity deploy` reconciles it: creates it if missing, updates it when a setting changed, and leaves it alone otherwise - reproducible, no separate step. The `3d-world` / `3d-engine` templates already ship this. Optional per room: `max_clients` (1-200, default 50), `seat_hold_seconds` (0-300, default 30), `host_hold_seconds` (0-600, default 60), `host_handoff` (default false) and `host_grace_seconds` (1-60, default 5), see "Host handoff".
+- **Declarative (best for deployed apps)** - declare it in `gipity.yaml` as a `realtime` deploy phase. `gipity deploy` reconciles it: creates it if missing, updates it when a setting changed, and leaves it alone otherwise - reproducible, no separate step. The `3d-world` / `3d-engine` templates already ship this. Optional per room: `max_clients` (1-200, default 50), `seat_hold_seconds` (0-300, default 30), `host_hold_seconds` (0-600, default 60), `host_handoff` (default false) and `host_grace_seconds` (1-60, default 5), see "Host handoff"; `server_channels` (up to 32 channel names only functions may publish on, see "Messages from your functions").
   ```yaml
   deploy:
     phases:
@@ -220,7 +269,7 @@ A room must exist before an app can connect - the server rejects unprovisioned r
             room_type: state
             auth_level: public
   ```
-- **CLI** - `gipity realtime room create game-lobby --type state --auth public [--max-clients N --seat-hold S --host-hold S --host-handoff --host-grace S]` (also `list`, `info`, `delete`). Deterministic and scriptable - good for CI.
+- **CLI** - `gipity realtime room create game-lobby --type state --auth public [--max-clients N --seat-hold S --host-hold S --host-handoff --host-grace S --server-channels a,b]` (also `list`, `info`, `delete`). Deterministic and scriptable - good for CI.
 
 
 ## Human/AI parity
@@ -229,47 +278,11 @@ When an app fields **both bot and human players**, anything a bot can do on its 
 
 ## Auth
 - **public**: Pass app token in join options - no login needed
-- **user**: Requires a signed-in Gipity user: the join must carry their Gipity session (the `sessionId` join option)
+- **user**: Requires a signed-in user. With the kit, pass `signedIn: true` (the page is signed in with `Gipity.auth`) or `userToken` (an app player's Steam / guest token); the kit trades it for a short-lived ticket at `POST /api/<guid>/realtime/ticket`. Not signed in: `RealtimeJoinError` `'auth'`. This is what lets a function reach one user with `realtime.publish({ toUser })`.
 
-## Verifying presence/shared state across clients
+## Testing multiplayer
 
-Presence and shared state only mean anything when two clients are **live at the same time**. Two important traps:
-
-- `gipity page test` *without* `--observe` does passive page loads only - it never submits a name, clicks, or reads shared state, so it can't tell you whether clients see each other.
-- Two separate `gipity page eval` calls run **sequentially** - each finishes before the next starts, so the clients never coexist and each sees only itself. That looks identical to a broken presence kit, but it's a false negative from the harness, not a bug in your app. Don't go debugging the transport over it.
-
-The fix for both is the interactive mode of `page test`, which spins up N **genuinely concurrent** clients, drives an action in each, samples the shared state over a window, and then **verifies the clients actually overlapped in time** (refusing to call a non-overlapping run a pass):
-
-```
-gipity page test ".../app/" --clients 2 --labels Alice,Bob   --action "document.querySelector('#name').value='{{label}}'; document.querySelector('form').requestSubmit();"   --observe "document.querySelectorAll('.present').length"
-```
-
-`{{label}}` / `{{i}}` are substituted per client. Each client runs `--action` once, then samples `--observe` across `--hold` ms (default 8000, `--samples` readings). A working presence app prints each client's count rising as the other joins (e.g. `1 → 1 → 2 → 2`) plus `✓ all clients overlapped for ~Ns`. If the clients didn't overlap (too much `--stagger`, or more `--clients` than free browser slots), it says so loudly and exits non-zero instead of giving you a misleading green. Use `--wait-for <selector>` to gate the action on the form being ready.
-
-## URL-param test mode (also handy for multiplayer lobbies)
-
-A click-driven multi-client test (two browsers, host on one, join from the other) is real work to write and slow to run. A small **URL-param test mode** in the app turns it into two passive page loads:
-
-- `?test-name=Alice` - auto-fills the player name on load.
-- `?test-action=host` - once on the lobby, auto-clicks Host (or your equivalent).
-- `?test-action=join` - once on the lobby, auto-joins the first open game.
-- `?test-action=join&room=<id>` - joins a specific room.
-
-With those, verification is a single `gipity page test` run - it loads the URL in N staggered headless clients (client 0 settles first as host, the rest join) and flags any error/crash lines across their consoles:
-
-```
-gipity page test ".../app/?test-name=Player&test-action=join" --clients 3 --stagger 8 --wait 10000
-```
-
-For asymmetric roles (one host, others join), don't run two separate calls - they execute sequentially, so the host client is gone (or its room is stale) by the time the joiners load, and you get a false negative. Co-launch the roles in **one** interactive invocation instead: with `--observe`, `{{label}}` / `{{i}}` substitute into the URL too, and the overlap check confirms the roles actually coexisted:
-
-```
-gipity page test ".../app/?test-name={{label}}&test-action={{label}}" --clients 2 --labels host,join   --observe "document.querySelector('[data-screen]')?.dataset.screen"
-```
-
-Client 0 loads `?test-action=host` and client 1 `?test-action=join`, genuinely concurrently - no backgrounding + `sleep` dance, no stale lingering room to land in.
-
-No Puppeteer, no Chromium libs, no DOM driving - a passive `page test` (no `--observe`) just loads the URL, so the URL-param test mode is what makes the load alone exercise the join path. (When you'd rather drive the form than add a test mode, the interactive `page test --observe` above does the DOM driving for you.) Implement it once per multiplayer app and every realtime change is a 30-second smoke test from there on. Pair it with the `data-testid` / `data-screen` / `data-ready` conventions from `web-app-basics` for any leftover click-driven tests.
+Presence and shared state only show up with two clients live at once: use `gipity page test --clients 2 --action ... --observe ...` (it checks the clients overlapped), not two sequential `page eval` calls, and add a URL-param test mode so a passive load exercises the join path. Both are in the `app-debugging-reference` skill ("Multiplayer apps").
 
 ## Tips
 - A multiplayer game needs a visible share affordance: show the invite link / code with a copy button on the "waiting for opponent" screen (that is when it's needed), not after the game starts
@@ -277,7 +290,6 @@ No Puppeteer, no Chromium libs, no DOM driving - a passive `page test` (no `--ob
 - Changing a room in `gipity.yaml` and redeploying updates it; running instances apply new settings to their next joiner (within about 30 s)
 - Room instances have a max client limit (`gipity realtime room info <name>`). A full **unscoped** room shards: the next joiner gets a fresh instance. A full **scoped** room (a specific table or invite code) rejects further joins with `err.code === 'full'`, so a party is never split across two instances
 - Scope values and room ids are visible to anyone with the app's public token (the lobby lists them), so treat a room code as a convenience, not a secret
-- When editing connection code, read the entire connection function before making changes - partial edits that fix one issue while missing a related one waste a full deploy cycle
 
 ## Related
 - [app-realtime-reference](https://docs.gipity.ai/skills/app-realtime-reference.html) - host handoff, reload, and delivery rules for the kit; the raw Colyseus client: connecting without the kit, room discovery over REST, relay + state room message patterns, turn-based games, and the safe state-room initialization boilerplate

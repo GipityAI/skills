@@ -184,7 +184,7 @@ A few small rules turn a flaky click test into a reliable one:
 - **Expose the current screen as a body attribute**: `<body data-screen="home">`, updated by your screen-switcher. A test then waits with `waitForSelector('body[data-screen="lobby"]')` instead of probing internal class / hidden state.
 - **A single readiness signal**: set `document.body.dataset.ready = 'true'` once the app's main loop is up and ready for input. Tests wait on that, not on guessed timeouts.
 
-These are about ten lines of code in total. For multiplayer apps, also read the **URL-param test mode** pattern in `app-realtime` - it turns a click-driven 2-client test into two passive page loads.
+These are about ten lines of code in total. For multiplayer apps, also read the **URL-param test mode** pattern in `app-debugging-reference` - it turns a click-driven 2-client test into two passive page loads.
 
 ## Related Skills
 Load the ones that match what you're building - frontend recipes, game and 3D templates, i18n, or backend services:
