@@ -55,16 +55,9 @@ When building apps or websites, follow these practices for professional-quality 
 
 ## External Packages
 - **No npm install.** Gipity apps are static - there is no node_modules or build server.
-- **Use import maps** to load npm packages from CDN. Add a `<script type="importmap">` block in `<head>`:
-  ```
-  <script type="importmap">
-  { "imports": { "lodash-es": "https://esm.sh/lodash-es@4.17.21" } }
-  </script>
-  ```
-  Then in JS: `import { debounce } from 'lodash-es';`
-- **jsdelivr** (`cdn.jsdelivr.net/npm/`) - Use when the package ships a browser-ready ES module file (Three.js, Phaser, Rapier).
-- **esm.sh** - Use for any npm package, especially those without a browser build. Add `?bundle-deps` if it has dependencies.
-- CDN `<script>` tags (non-module) also work for libraries that expect a global (e.g. Phaser).
+- **Vendor libraries into `src/js/vendor/`** so they deploy with the app to the Gipity CDN: fetch the self-contained ESM bundle with `curl -sSL "https://esm.sh/<pkg>@<version>?bundle" -o src/js/vendor/<pkg>.js`, then import it locally (`import { debounce } from './vendor/lodash-es.js'`). Check the file is the real library, not a tiny re-export stub (see "Third-party libraries" below).
+- **A runtime CDN import** (an import map pointing at esm.sh/jsdelivr) makes the app depend on that CDN being up. Only do it with a `try/catch` around a dynamic import and a clear message to the user when it fails.
+- CDN `<script>` tags (non-module) work for libraries that expect a global (e.g. Phaser).
 
 ## Code Quality
 - **Keep files under ~400 lines** unless the content genuinely requires it (e.g. a long data table, template string, or config object). When logic grows beyond that, split into focused modules (e.g. `utils.js`, `api.js`, `ui.js`).

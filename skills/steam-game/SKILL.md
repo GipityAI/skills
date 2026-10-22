@@ -133,7 +133,7 @@ The ticket identity must be exactly `gipity`. Player tokens last 24 hours; there
 
 ```yaml
 # gipity.yaml, under the functions phase
-function_definitions:
+functions:
   - name: forget-player
     auth: member            # the platform calls it; players and visitors can't
     hooks: [user_deleted]

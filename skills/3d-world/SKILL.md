@@ -235,7 +235,7 @@ Add the phases to `gipity.yaml` (keep the shipped `files` and `realtime` phases)
     - name: functions
       type: functions
       source: functions
-      function_definitions:
+      functions:
         - { name: save-progress, auth: user, tables: [saves] }
         - { name: load-progress, auth: user, tables: [saves] }
 ```
