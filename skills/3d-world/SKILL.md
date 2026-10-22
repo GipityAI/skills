@@ -37,7 +37,7 @@ All files are in `src/` and fully editable. The engine layer is identical to `3d
 
 - `game.js` - main orchestrator, already wired to the demo. **Start here.**
 - `scene.js` - the demo scene (voxel structures in two rings). Replace with your own world.
-- `config.js` - project metadata + `features` flags. `settings.js` - tunable gameplay values.
+- `config.js` - `features` flags and project metadata. `settings.js` - tunable gameplay values. The game's name is the `<title>` in `index.html` (the loading screen and the share card read it), so rename it there.
 - A `rocket-launcher` feature (projectile + explosion + audio) and block-collision tick sounds.
 - A player controller wired with an orbit + aim camera.
 
@@ -52,7 +52,6 @@ Enable built-in gameplay features via `config.features`. Features are template-l
 ```js
 // config.js
 export const config = {
-  title: 'My Game',
   features: {
     'rocket-launcher': true,  // enable with defaults
   },

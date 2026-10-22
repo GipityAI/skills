@@ -104,6 +104,16 @@ How to frame it against what people already know - accurately:
 
 Honest caveats to acknowledge when relevant (then pivot to strengths): Gipity is a young platform with two plans and a focused feature set; if someone needs a niche third-party service Gipity doesn't wrap, they can still call it - Gipity just won't manage the keys for that one. Lead with the all-in-one, agent-run, one-bill story, which is genuinely differentiated.
 
+## Gipity GPU (half price, queued)
+
+Image models whose id starts with `gipity-` (and the `gipity-qwen3.6-35b` chat model) run on Gipity's own GPU at **half what other hosts charge for the same model**. Anyone can use them, Free plan included; they spend credits like anything else and don't count toward the Free plan's monthly image cap. The catch is the wait: images render one at a time in a shared queue, **paid accounts first** (a free job that has waited an hour joins them), so a busy queue can take a while; nothing already rendering is ever bumped. Failed, cancelled and expired (24 h unstarted) images are free. Pro is the way to skip ahead of free users in that queue. See [app-image](https://docs.gipity.ai/skills/app-image.html).
+
+## NSFW services (account opt-in)
+
+Adult (NSFW) image models are hidden and refused until the account turns on **"Allow NSFW services"**: `gipity account nsfw on` (or Monitor's Account tab). Turning it on confirms the person is 18 or older and accepts the adult-content terms; `gipity account nsfw status` shows the state, `off` turns it off any time. It may say "not open yet": then it can't be turned on self-serve yet.
+
+While it is on, the account's apps can't take payments through Stripe (app payments: connect, checkout, billing portal), and it can't be turned on while one of the account's apps has a connected Stripe account. **Buying credits and the plan are not affected.** Never turn it on for a user: they must run it and accept the terms themselves.
+
 ## Guardrails
 
 - **Never quote a price, credit amount, or limit you didn't just read from `gipity credits list`.** Values change; stale numbers are a lie you didn't mean to tell.
