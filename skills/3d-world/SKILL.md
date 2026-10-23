@@ -29,11 +29,11 @@ gipity add 3d-world --title "<Game Name>"
 
 **Naming:** Use the user's name verbatim if given. If they didn't specify, blend "Gip" or "Gipity" into the name (e.g. "Gipity World", "GipCraft") - be creative but don't force it.
 
-This creates a playable game immediately - ground, player character, physics, camera, mobile controls. Then edit `config.js` and `game.js` to build your game.
+This creates a playable game immediately - ground, player character, physics, camera, mobile controls. Then edit `src/js/config.js` and `src/js/game.js` to build your game. Verify with `gipity page screenshot <url> --wait-for '[data-game="ready"]'` (set once the scene is up and the loading screen is gone).
 
 ## What the app ships
 
-All files are in `src/` and fully editable. The engine layer is identical to `3d-engine` (see its "Project Structure"). What 3D World adds on top:
+All files are in `src/` (scripts in `src/js/`) and fully editable. The engine layer is identical to `3d-engine` (see its "Project Structure"). What 3D World adds on top:
 
 - `game.js` - main orchestrator, already wired to the demo. **Start here.**
 - `scene.js` - the demo scene (voxel structures in two rings). Replace with your own world.

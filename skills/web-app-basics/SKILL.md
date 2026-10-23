@@ -86,7 +86,7 @@ When building apps or websites, follow these practices for professional-quality 
 
 ## Deployment
 - **src/ detection**: If a `src/` directory exists, only `src/` is deployed. Otherwise the full project root is deployed.
-- **Local `<script>` tags MUST use `type="module"`** (e.g. `<script type="module" src="./js/main.js"></script>`) - this is what the templates ship. Prod deploys run Vite optimization by default, which only traces module scripts; it aborts (it won't silently drop your JS) when it hits a plain same-origin `<script src>`. If you have an app that genuinely can't use modules, deploy it with `gipity deploy prod --no-optimize` to upload files as-is (environments don't optimize unless you pass `--optimize`). CDN `<script>` tags pointing at external URLs (Phaser, etc.) are always fine without `type="module"`.
+- **Local `<script>` tags use `type="module"`** (e.g. `<script type="module" src="./js/main.js"></script>`), as the templates ship. Deploys upload files as-is; the opt-in `--optimize` Vite bundle traces only module scripts. CDN `<script>` tags (Phaser, etc.) need no `type="module"`.
 - **Rate limit**: Per-plan deploy-rate cap
 - **Caching**: the Gipity CDN cache is automatically invalidated on production deploys. Dev deploys use short cache TTLs.
 - **File hosting**: `gipity upload <file>` stores a file and prints a durable public URL right away, no deploy needed. Useful for images in emails or sharing files outside the app.
