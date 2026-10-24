@@ -26,7 +26,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/launch.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/sync-pull.cjs\""
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/launch.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/sync-pull.cjs\"",
+            "timeout": 60
           }
         ]
       }

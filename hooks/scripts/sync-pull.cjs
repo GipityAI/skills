@@ -9,23 +9,34 @@
  * tree moved underneath it. Always exits 0 - sync trouble must never block
  * the user's prompt.
  *
- * RATE-LIMITED: the full reconcile blocks the user's prompt, and back-to-back
- * turns almost never have new cloud-side files. If this hook completed a pull
- * in the last PULL_INTERVAL_MS (marker file below), skip - remote changes are
- * picked up at most one interval later, and `gipity sync` remains the manual
- * catch-up (it never rate-limits). Only OUR completed pulls stamp the marker;
- * pushes don't count.
+ * TIME-BOXED: the prompt waits at most BUDGET_MS for the sync. A sync still
+ * running then (a big upload, a slow network) is left to finish on its own in
+ * the background - it holds the project sync lock, so nothing races it - and
+ * the hook returns at once. The pid in RUNNING makes later prompts skip while
+ * it is alive instead of queueing behind its lock. Before this, a slow sync
+ * was killed by the harness hook timeout every prompt, never finished, and
+ * stalled every prompt that followed.
  *
- * Override: set GIPITY_PULL_INTERVAL_MS to tune the window per session or
- * machine - `0` disables the rate limit entirely (pull on every prompt, the
- * pre-rate-limit behavior). Unset/invalid falls back to the 15s default.
+ * RATE-LIMITED: every attempt (success, failure or hand-off to the
+ * background) stamps MARKER, and a prompt within PULL_INTERVAL_MS of the last
+ * attempt skips. Stamping only successes made a failing sync retry, and stall,
+ * on every prompt. `gipity sync` remains the manual catch-up (never limited).
+ *
+ * Override: GIPITY_PULL_INTERVAL_MS tunes the window per session or machine -
+ * `0` disables the rate limit (pull on every prompt). Unset/invalid falls back
+ * to the 15s default.
  */
 'use strict';
-const { existsSync, statSync, writeFileSync, mkdirSync } = require('fs');
+const { existsSync, statSync, writeFileSync, readFileSync, mkdirSync, openSync, closeSync, unlinkSync } = require('fs');
 const { join } = require('path');
-const { exec } = require('child_process');
+const { spawn } = require('child_process');
 
-const MARKER = join('.gipity', 'last-pull');
+const DIR = '.gipity';
+const MARKER = join(DIR, 'last-pull');
+const RUNNING = join(DIR, 'pull.pid');
+const OUTPUT = join(DIR, 'pull-output.json');
+const HELD = join(DIR, 'pull-held');
+const BUDGET_MS = 20_000; // under the hooks.json timeout (60s), with room for node startup
 const envInterval = Number(process.env.GIPITY_PULL_INTERVAL_MS);
 const PULL_INTERVAL_MS = Number.isFinite(envInterval) && envInterval >= 0 ? envInterval : 15_000;
 
@@ -35,15 +46,52 @@ try {
   if (PULL_INTERVAL_MS > 0 && Date.now() - statSync(MARKER).mtimeMs < PULL_INTERVAL_MS) process.exit(0);
 } catch { /* no marker yet - pull */ }
 
-exec('gipity sync --json', (err, out) => {
-  if (err) process.exit(0);
+// A sync an earlier prompt handed to the background is still going: skip.
+try {
+  const pid = Number(readFileSync(RUNNING, 'utf8'));
+  if (pid > 0) { process.kill(pid, 0); process.exit(0); }
+} catch { /* no pid file, or that process is gone */ }
+
+let out;
+try {
+  mkdirSync(DIR, { recursive: true });
+  writeFileSync(MARKER, '');
+  out = openSync(OUTPUT, 'w');
+} catch { process.exit(0); }
+
+// stdout goes to a file, not a pipe, so the child can outlive this hook
+// without dying on a broken pipe. shell: true resolves the gipity shim on
+// every platform (gipity.cmd on Windows); the argv is fixed, nothing to quote.
+const child = spawn('gipity sync --json', {
+  shell: true, detached: true, windowsHide: true, stdio: ['ignore', out, 'ignore'],
+});
+closeSync(out);
+try { writeFileSync(RUNNING, String(child.pid)); } catch { /* best-effort */ }
+
+const clearRunning = () => { try { unlinkSync(RUNNING); } catch { /* already gone */ } };
+
+const timer = setTimeout(() => {
+  child.unref(); // leave it running; RUNNING keeps the next prompts off its lock
+  console.log(JSON.stringify({
+    systemMessage: `Gipity sync is taking longer than ${BUDGET_MS / 1000}s, so it is finishing in the background. Run \`gipity sync\` to see what it is doing.`,
+  }));
+  process.exit(0);
+}, BUDGET_MS);
+
+child.on('error', () => { clearRunning(); process.exit(0); });
+child.on('exit', (code) => {
+  clearTimeout(timer);
+  clearRunning();
+  if (code !== 0) process.exit(0);
   try {
-    mkdirSync('.gipity', { recursive: true });
-    writeFileSync(MARKER, '');
-  } catch { /* marker is best-effort */ }
-  try {
-    const r = JSON.parse(out);
-    if (r.applied > 0) {
+    const r = JSON.parse(readFileSync(OUTPUT, 'utf8'));
+    // Large files sync held back are listed in r.summary. Repeat that only when
+    // the held set changes, so one stray video doesn't nag every prompt.
+    const held = Array.isArray(r.heldLarge) ? r.heldLarge.map(h => h.path).sort().join('\n') : '';
+    let heldChanged = false;
+    try { heldChanged = held !== readFileSync(HELD, 'utf8'); } catch { heldChanged = held !== ''; }
+    if (heldChanged) { try { writeFileSync(HELD, held); } catch { /* best-effort */ } }
+    if (r.applied > 0 || (heldChanged && held)) {
       console.log(JSON.stringify({ systemMessage: 'Gipity sync: ' + (r.summary || 'Files changed.') }));
     }
   } catch { /* ignore malformed output */ }
