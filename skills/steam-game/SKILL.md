@@ -70,7 +70,7 @@ func save_result(result: Dictionary):
 	var r = await Gipity.call_function("race-result", result)   # r.data = the function's return value
 ```
 
-Every call returns `{ ok, data, error, code, status, offline }` and never throws. `code` is the server's error code (e.g. `DISPLAY_NAME_REJECTED`, `PLAYER_CLEANUP_FAILED`, `GAME_VERSION_TOO_OLD`), `""` when there is none; a refused leaderboard run keeps `ok: true` with `data.accepted: false` and its code in `code`. `offline` means the server couldn't be reached: the game must keep working without online features. Leaderboard submissions made offline are queued and sent after the next sign-in; a queued run the server then refuses is dropped and reported through the `queued_run_dropped(run, code, reason)` signal. Runs carry the game's `application/config/version` as `gameVersion`. The addon renews expired player tokens by signing in again.
+Every call returns `{ ok, data, error, code, status, offline }` and never throws. `code` is the server's error code (e.g. `DISPLAY_NAME_REJECTED`, `PLAYER_CLEANUP_FAILED`, `GAME_VERSION_TOO_OLD`), `""` when there is none; a refused leaderboard run keeps `ok: true` with `data.accepted: false` and its code in `code`. `offline` means the server couldn't be reached: the game must keep working without online features. Leaderboard submissions made offline are queued and sent after the next sign-in; a queued run the server then refuses is dropped and reported through the `queued_run_dropped(run, code, reason)` signal. Runs carry the game's `application/config/version` as `gameVersion`. Sessions renew on their own: the addon refreshes the 1-hour access token with its 60-day refresh token a minute before it expires (and once on a 401), signs in again if the refresh token was revoked, and `sign_out()` revokes the refresh token on the server.
 
 Other calls: `link_steam()` (attach Steam to the current guest, keeping their progress), `sign_out()`, `rename_player(name)` (the player's name in this game, for guests and Steam players; `null` clears it), `check_name(name)` (is a name free, with suggestions; works before sign-in), `Gipity.player.nameConflict` (true when the game should ask the player to pick a name), `delete_player()` (account deletion requests; on `PLAYER_CLEANUP_FAILED` the session is kept so you can retry), and the `Gipity.leaderboard` client (`submit`, `top`, `around_me`, `me`, `friends`, `friends_steam`, `ghost`, `boards`, `seasons`).
 
@@ -80,7 +80,7 @@ A signed-in player is an ordinary signed-in user to your functions: `auth: user`
 
 `ctx.auth.identity` says how they signed in: `{ provider: 'steam', id: '<SteamID64>' }` or `{ provider: 'guest', id: '<hash>' }`, and `null` for Gipity users. Use the Steam id to match Steam friends to players.
 
-A player belongs to one game. The same Steam account is a different player in each of your games, and a player token only works on its own game's API.
+A player belongs to one game. The same Steam account is a different player in each of your games, and a player's access token only works on its own game's API.
 
 ```js
 // functions/race-result.js  (gipity.yaml: auth: user, tables: [race_results])
@@ -96,14 +96,18 @@ export default async function raceResult(ctx, { db, guid }) {
 
 The server can't see the game, so treat everything a client sends as a claim: check it for plausibility (bounds, consistency, rate) and keep a way to ban. The leaderboard kit does this for scores.
 
+**Push notifications on iOS** ("your ghost was beaten", "the weekly board reset"): the same player token registers the device with `POST /api/<app-guid>/notify/devices` and a function sends with the injected `notify()`. You bring your own Apple key once (`gipity notify apns set`). See the `app-notify` skill, "Native iOS apps (APNs)".
+
 ## Calling the API without the addon
 
 Any client can use plain HTTPS against `https://a.gipity.ai/api/<appGuid>`:
 
 | Call | Body | Returns |
 |---|---|---|
-| `POST /auth/steam` | `{ ticket }`: the bytes from `GetAuthTicketForWebApi("gipity")`, hex-encoded. Add `"link": true` with a guest's Bearer token to link. | `{ data: { token, expiresIn, user } }` |
-| `POST /auth/guest` | `{ deviceSecret, displayName? }`: 32-256 random characters the client generates once and keeps | same |
+| `POST /auth/steam` | `{ ticket, deviceLabel? }`: the bytes from `GetAuthTicketForWebApi("gipity")`, hex-encoded. Add `"link": true` with a guest's Bearer token to link. | `{ data: { accessToken, accessTokenExpiresAt, refreshToken, refreshTokenExpiresAt, user } }` |
+| `POST /auth/guest` | `{ deviceSecret, displayName?, deviceLabel? }`: 32-256 random characters the client generates once and keeps | same |
+| `POST /auth/refresh` | `{ refreshToken }` | `{ data: { accessToken, accessTokenExpiresAt, refreshToken, refreshTokenExpiresAt } }`; the old refresh token is retired |
+| `POST /auth/signout` | `{ refreshToken }`; `?everywhere=1` for every device | `{ data: { signedOut } }` |
 | `GET /auth/player` | Bearer token | `{ data: { guid, displayName, provider, providerUserId } }` |
 | `PATCH /auth/player` | `{ displayName }` (1-40 characters, or `null` to clear) with a player's Bearer token | `{ data: { guid, displayName, nameConflict } }`. 409 `DISPLAY_NAME_TAKEN` when names are unique and it's taken |
 | `GET /auth/player/name-available?name=` | none, or a player's Bearer token (their own name counts as free). 30 checks a minute per IP | `{ data: { name, available, uniqueNames, suggestions } }`: up to 5 free names that pass the filter when taken |
@@ -112,7 +116,7 @@ Any client can use plain HTTPS against `https://a.gipity.ai/api/<appGuid>`:
 
 The sign-in `user` is `{ guid, displayName, avatarUrl, provider, providerUserId, isNew, nameConflict }`.
 
-The ticket identity must be exactly `gipity`. Player tokens last 24 hours; there is no refresh token, so sign in again (a fresh Steam ticket, or the same device secret) when one expires or a call returns 401.
+The ticket identity must be exactly `gipity`. The access token (the Bearer) lasts 1 hour and the refresh token 60 days from when it was issued; `/auth/refresh` trades a refresh token for a new pair, so a game played at least every 60 days never has to sign in again. Refresh a minute before `accessTokenExpiresAt` and once on a 401. A refresh token works once: sending a retired one revokes that device's session, so refresh from one place at a time. When `/auth/refresh` itself returns 401 (revoked, expired, or the player was signed out everywhere), sign in again with a fresh Steam ticket or the same device secret. Details: [app-users](https://docs.gipity.ai/skills/app-users.html#native-clients).
 
 ### Display names
 

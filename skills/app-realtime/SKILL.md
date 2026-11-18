@@ -270,7 +270,7 @@ When an app fields **both bot and human players**, anything a bot can do on its 
 
 ## Auth
 - **public**: Pass app token in join options - no login needed
-- **user**: Requires a signed-in user. With the kit, pass `signedIn: true` (signed in with `Gipity.auth`) or `userToken` (an app player's Steam / guest token); the kit trades it for a short-lived ticket at `POST /api/<guid>/realtime/ticket`. Not signed in: `'auth'` (`rt.join*` throw it; `rt.connect()` resolves `null` with it in `rt.getLastError()`). This is what lets a function reach one user with `realtime.publish({ toUser })`.
+- **user**: Requires a signed-in user. With the kit, pass `signedIn: true` (signed in with `Gipity.auth`) or `userToken` (an app player's Steam / guest token); the kit trades it for a short-lived ticket at `POST /api/<guid>/realtime/ticket`. A device or server with no browser can call that endpoint with a project API key (`X-Api-Key`, the key's own app only): it joins as **the user who created the key**, so that is the user `realtime.publish({ toUser })` must name to reach it. Not signed in: `'auth'` (`rt.join*` throw it; `rt.connect()` resolves `null` with it in `rt.getLastError()`). This is what lets a function reach one user with `realtime.publish({ toUser })`.
 
 ## Tips
 - A multiplayer game needs a visible share affordance: show the invite link / code with a copy button on the "waiting for opponent" screen (that is when it's needed), not after the game starts
