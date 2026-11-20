@@ -188,6 +188,7 @@ Load the ones that match what you're building - frontend recipes, game and 3D te
 - `app-debugging` - Debug a deployed app: page inspect/eval/screenshot, function logs
 - `app-llm` - AI/LLM service for your app
 - `app-auth` - User authentication (Sign in with Gipity)
+- `app-auth-client` - Sign-in client code (Gipity.auth SDK, popup vs redirect)
 - `app-realtime` - Real-time multiplayer rooms and WebSocket
 - `app-image` - Image generation (Gipity Image)
 - `app-video` - Video generation and understanding (Gipity Video)

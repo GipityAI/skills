@@ -1,6 +1,6 @@
 ---
 name: chatbot
-description: "Use when the user wants to add a configurable AI chatbot/assistant to a web app - a help bubble in the corner, a support bot, or an in-game NPC dialog - with a custom persona, scope guardrails, and static knowledge, powered by Gipity's LLM service with no API keys."
+description: "Use when the user wants an AI chatbot or assistant in a web app - a help bubble, a support bot, a chat-with-your-data analyst, a ChatGPT-style page with saved conversations, or an in-game NPC - including one that looks things up or takes actions through the app's own backend, powered by Gipity's LLM service with no API keys."
 ---
 
 <!-- GENERATED from platform/docs/skills/chatbot.md by platform/scripts/sync-claude-plugin.ts - do not edit here. -->
@@ -11,84 +11,91 @@ description: "Use when the user wants to add a configurable AI chatbot/assistant
 
 # Chatbot kit
 
-`chatbot` is a Gipity kit that drops a configurable AI assistant into any web app: a help bubble in the corner, a support bot, or an in-game NPC dialog. You give it a **persona**, optional **scope guardrails** (what it will and won't answer), and optional **static knowledge**; it streams answers from Gipity's LLM service. No API keys, no backend to write.
+`chatbot` is a Gipity kit that puts an AI assistant into any web app: a help bubble in the corner, a panel in a page, a full-page chat with a conversation sidebar, or your own UI on the headless engine. It streams answers from the Gipity LLM service, and it can **call your app's functions as tools**, so the assistant can look things up in your database and take actions as the signed-in user. No API keys, no agent server to run.
 
-## Install
+**Building a whole chat app?** Start from the `ai-chat` app instead (`gipity add ai-chat` in an empty project): sign-in, saved conversations, a read-only SQL analyst tool over a demo dataset, a confirmed write tool, files, voice and a model picker, already wired. Swap its demo tables for the user's data.
+
+## Install into an existing app
 
 ```bash
 gipity add chatbot
 ```
 
-The installer drops the kit into `src/packages/chatbot/`, wires the import map (`import { mount } from '@gipity/chatbot'`), and declares `llm: owner_pays` in your `gipity.yaml` so logged-out visitors can use the bot. Frontend-only: no migrations, no functions. Run `gipity deploy` to ship.
-
-## Two ways to use it
-
-**1) Bubble widget (default)** - a `<chatbot-widget>` custom element, floating launcher in the corner. The launcher shows a 💬 emoji by default; set `ui.launcherIcon` to an image URL to replace it. Assistant replies render minimal inline markdown (**bold**, *italic*, `code`, fenced blocks) with everything else HTML-escaped, so markdown in persona/knowledge answers displays properly:
+The kit lands in `src/packages/chatbot/`, the import map gets `@gipity/chatbot`, `gipity.yaml` gets `llm: owner_pays` (so signed-out visitors can chat), and `src/js/chatbot.config.js` is scaffolded. Mount it:
 
 ```html
 <chatbot-widget id="bot"></chatbot-widget>
 <script type="module">
   import { mount } from '@gipity/chatbot';
   import config from './js/chatbot.config.js';
-  mount('#bot', config);
+  mount('#bot', config);     // returns the element; element.bot is the engine
 </script>
 ```
 
-**2) Headless engine** - bring your own UI (an in-game NPC dialog box, a custom panel):
+The full config, with every setting explained, is in `src/packages/chatbot/README.md`. Only `persona.name` and `persona.instructions` are required. An unknown setting throws, so a typo can't silently do nothing.
+
+## Tools: let the assistant use your backend
+
+A tool is one of your functions the model may call mid-answer. The kit runs it **as the signed-in visitor** through the client SDK, so the function's own `auth`, table grants and limits apply: the assistant can do exactly what that user could already do through the app, nothing more.
 
 ```js
-import { createChatbot } from '@gipity/chatbot';
-import config from './js/chatbot.config.js';
-
-const bot = createChatbot(config);
-bot.on('delta', (text) => myUi.append(text));   // streaming chunks
-bot.on('complete', () => myUi.stopThinking());
-await bot.send('how do I fly the ship?');
+tools: [
+  {
+    name: 'lookup_order',                       // what the model calls
+    description: 'Find one of the user\'s orders by number. Returns { status, items, total }.',
+    function: 'order-status',                   // functions/order-status.js
+    parameters: { type: 'object', properties: { number: { type: 'string' } }, required: ['number'] },
+  },
+  {
+    name: 'cancel_order',
+    description: 'Cancel an order that has not shipped.',
+    function: 'cancel-order',
+    confirm: true,                              // the user must click Allow first
+    parameters: { type: 'object', properties: { number: { type: 'string' } }, required: ['number'] },
+  },
+],
 ```
 
-## Config
+- The function receives the tool arguments as its body and returns JSON; return `{ error: '...' }` for an expected failure and the model reads it and recovers.
+- **`description` is how the model decides when to call it.** Say what it does and what it returns.
+- **`confirm: true` for anything that writes, sends or spends.** The widget shows an Allow / Don't allow card; a declined call is reported to the model.
+- Personal data: declare the function `auth: user` and filter by `ctx.auth.userGuid`, as for any function. A tool that needs sign-in and is called signed out tells the model and shows a Sign in button.
+- `run: async (args) => result` instead of `function` makes a browser-side tool (read the page, the cart, the game state).
+- A model call per round, at most `model.maxToolSteps` (default 8) rounds per answer. Results over 30,000 characters are cut and the model is told.
+- **Chat with data:** one `query_data` tool over a function that runs a single `SELECT` inside `db.tx` with `SET TRANSACTION READ ONLY`, granted only the tables it may read, plus the schema in `knowledge`. The `ai-chat` app's `functions/query-data.js` is the pattern to copy.
 
-Install scaffolds `src/js/chatbot.config.js` with **every key present, commented, and pre-filled** - persona, scope guardrails (with a worked refusal example), a knowledge placeholder, ui, model. Edit it in place; it is the config reference, so don't go looking for the shape elsewhere. Only `persona.name` and `persona.instructions` are required.
+## Saved conversations
 
-One thing worth knowing before you edit it: `scope` is what keeps the bot on-topic ("if someone asks something off-topic it should politely decline"). Fill `allowed` / `refused` / `onRefusal`, and keep at least one `refusalExamples` pair - the worked example is what makes the guardrail hold *in character*. (A stricter pre-classification step is on the roadmap.)
+`storage.persist` picks where conversations live:
 
-## Knowledge - 20k token budget
+- `'local'`: this browser's localStorage. No backend; good for a public help bubble.
+- `functionStore('chats')`: your app database, per signed-in user, through one function (import `functionStore` from `@gipity/chatbot`). Copy `functions/chats.js` and `migrations/001-chat.sql` from the `ai-chat` app; the protocol is in the kit README.
 
-Give the bot facts to answer from. Two source types today:
+With storage on, an inline or full-page widget shows a sidebar (new, rename, delete), conversations get a short title from a small model, and regenerate / edit rewrite the saved tail.
 
-- `{ type: 'text', content: '...' }` - inline text, validated at config-load.
-- `{ type: 'url', url: 'https://...' }` - fetched once when the engine starts.
+## Features
 
-If the combined sources exceed `maxTokens` (default 20,000; estimate is `chars / 4`), the kit **throws** rather than silently truncating - trim the sources or raise the budget. File-based knowledge and RAG embeddings are on the roadmap; for now inline the content as a `text` source.
+`features` turns on photos (`vision`), text files like CSV, logs and JSON (`files`), voice (`voice`: mic via Gipity transcribe, read aloud via Gipity TTS) and a built-in `generate_image` tool (`imageGen`). Each uses an app service, so declare it in the `services` phase of `gipity.yaml` (`transcribe`, `tts`, `image`; usually `owner_pays`) or the call fails. `model.choices` adds a model picker; pick models that can call tools when you have tools (Gipity GPU models can't).
 
-## Theming
+## Headless engine
 
-Colors come from CSS variables. `theme: 'match-app'` (the default) reads `--primary` from the host page, so the bot matches your app automatically (the templates' `gipity-theme.css` defines `--primary`). Override per-instance with `ui.primaryColor`. The widget uses Shadow DOM, so host CSS won't leak in.
+`createChatbot(config)` is the same brain without the UI: `send(text, { attachments })`, `stop()`, `regenerate()`, `editLast(text)`, `newChat()`, `open(id)`, `conversations()`, `setModel(route)`, `history()`. Events: `start`, `delta`, `message`, `tool_start`, `tool_end`, `confirm` (call `approve()` or `deny()`), `usage`, `complete`, `error` (`err.visitorMessage` is safe to show), `auth_required`, `history`, `conversation`, `conversations`. `readAttachment(file)` turns a picked file into an attachment.
 
-## Headless engine events
+## Knowledge and guardrails
 
-When you drive the bot yourself with `createChatbot(config)`:
+- `knowledge.sources`: `{ type: 'text', content }` or `{ type: 'url', url }`, 20,000 tokens total by default (`chars / 4`). Over budget throws, never truncates. For data that changes or is large, use a tool instead.
+- `scope`: `allowed` / `refused` / `onRefusal` plus at least one `refusalExamples` pair keeps the bot on-topic and in character.
 
-```js
-bot.on('start',            () => {});            // a send is starting
-bot.on('delta',            (text) => {});        // streaming text chunk
-bot.on('message',          (msg)  => {});        // a full message landed in history
-bot.on('complete',         (msg)  => {});        // assistant response finished
-bot.on('usage',            (u)    => {});        // tokens / credits, when reported
-bot.on('reset',            ()     => {});        // history cleared
-bot.on('error',            (err)  => {});        // something threw
-bot.on('knowledge_loaded', ({ tokens }) => {});  // a url source finished loading
-```
+## Long conversations
 
-## What's not in v1
-
-Tool-calling (an explicit `tools` allowlist exists in the config but project-function calling lands in a later PR), voice (`app-tts` + `app-audio`), vision, image generation, and persisted per-user history (`storage`) are wired in later PRs - the config keys are present but inert today. Build against persona + scope + knowledge for now.
+Each request carries the newest messages that fit about 75,000 tokens (at most 200 messages), starting at a user message so a tool result never loses its call. The whole conversation stays in `bot.history()` and in storage.
 
 ## Verifying
 
-After wiring it up, `gipity deploy` and open the page - the launcher should appear in the corner; the greeting renders on first open and the starter chips show before the first message.
+`gipity deploy dev`, then `gipity page inspect <url>` (add `--auth` for a page behind sign-in): clean console, the widget renders. Test each tool's function with `gipity test` (`ctx.fn.callAs(ctx.users.alice, ...)` for `auth: user`), including that one user can't reach another's data.
 
 ## Related skills
-- `app-llm` - the LLM service the chatbot calls under the hood
-- `web-app-basics` / `web-ui-patterns` - building and styling the host page
-- `deploy` - the deploy pipeline
+- `app-llm` - the LLM service under the kit, including tool calling for your own loop
+- `app-database` - `db.tx` and table grants for data tools
+- `app-auth` / `app-users` - sign-in, and private pages with `access:`
+- `app-testing` - testing the functions your tools call
