@@ -57,12 +57,12 @@ tools: [
 ```
 
 - The function receives the tool arguments as its body and returns JSON; return `{ error: '...' }` for an expected failure and the model reads it and recovers.
-- **`description` is how the model decides when to call it.** Say what it does and what it returns.
+- **`description` is how the model decides when and how to call it.** Say what it does, when to use it, what it returns, and what it needs to call it well (for a SQL tool: the tables and rules).
 - **`confirm: true` for anything that writes, sends or spends.** The widget shows an Allow / Don't allow card; a declined call is reported to the model.
 - Personal data: declare the function `auth: user` and filter by `ctx.auth.userGuid`, as for any function. A tool that needs sign-in and is called signed out tells the model and shows a Sign in button.
 - `run: async (args) => result` instead of `function` makes a browser-side tool (read the page, the cart, the game state).
 - A model call per round, at most `model.maxToolSteps` (default 8) rounds per answer. Results over 30,000 characters are cut and the model is told.
-- **Chat with data:** one `query_data` tool over a function that runs a single `SELECT` inside `db.tx` with `SET TRANSACTION READ ONLY`, granted only the tables it may read, plus the schema in `knowledge`. The `ai-chat` app's `functions/query-data.js` is the pattern to copy.
+- **Chat with data:** one `query_data` tool over a function that runs a single `SELECT` inside `db.tx` with `SET TRANSACTION READ ONLY`, granted only the tables it may read, with the tables and query rules in the tool's `description`. The `ai-chat` app's `functions/query-data.js` is the pattern to copy.
 
 ## Saved conversations
 
@@ -83,7 +83,8 @@ With storage on, an inline or full-page widget shows a sidebar (new, rename, del
 
 ## Knowledge and guardrails
 
-- `knowledge.sources`: `{ type: 'text', content }` or `{ type: 'url', url }`, 20,000 tokens total by default (`chars / 4`). Over budget throws, never truncates. For data that changes or is large, use a tool instead.
+- Put each kind of information where the model uses it: who the bot is and how it works in `persona.instructions` (not a tool list); short facts most answers need in a `knowledge` source (`load: 'always'`, the default: sent every request in `<knowledge>` tags, 20,000 tokens total); long reference such as manuals or policies in `load: 'lookup'` sources with a `title` and `summary` (kept out of the prompt; a built-in `read_knowledge` tool lists them and reads one on demand, 10,000 tokens each); what a tool does and what it needs to call it well (a schema, valid values) in the tool's `description`; live or per-user data behind a tool. The kit adds the Markdown, attachment, confirm and today's-date notes itself. Over a budget throws, never truncates.
+- Sources: `{ type: 'text', content }` or `{ type: 'url', url }`, each with optional `title`, `summary`, `load`.
 - `scope`: `allowed` / `refused` / `onRefusal` plus at least one `refusalExamples` pair keeps the bot on-topic and in character.
 
 ## Long conversations
